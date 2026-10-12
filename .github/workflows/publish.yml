@@ -10,7 +10,7 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    environment: npm   # waits for approval; holds NPM_TOKEN
+    environment: npm   # waits for approval; npm takes publishes only from here
     permissions:
       contents: read
       id-token: write
@@ -27,5 +27,3 @@ jobs:
       - run: npm version ${GITHUB_REF_NAME#v} --no-git-tag-version
       - run: sed -i "s/__VERSION__/${GITHUB_REF_NAME#v}/g" dist/index.min.js
       - run: npm publish --access public --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
