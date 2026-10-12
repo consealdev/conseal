@@ -10,6 +10,7 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    environment: npm   # waits for approval; holds NPM_TOKEN
     permissions:
       contents: read
       id-token: write
