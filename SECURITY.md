@@ -4,7 +4,7 @@
 
 **Please do not open a public GitHub issue for security vulnerabilities.**
 
-Use [GitHub private vulnerability reporting](https://github.com/codesensedev/conseal/security/advisories/new) to submit a report confidentially. If you are unsure whether something qualifies, err on the side of reporting privately.
+Use [GitHub private vulnerability reporting](https://github.com/consealdev/conseal/security/advisories/new) to submit a report confidentially. If you are unsure whether something qualifies, err on the side of reporting privately.
 
 You can expect:
 

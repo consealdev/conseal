@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/codesensedev/conseal/main/docs/assets/logo-dark.svg">
-    <img src="https://raw.githubusercontent.com/codesensedev/conseal/main/docs/assets/logo-light.svg" style="width: 4rem; height: 4rem;" alt="Conseal logo">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/consealdev/conseal/main/docs/assets/logo-dark.svg">
+    <img src="https://raw.githubusercontent.com/consealdev/conseal/main/docs/assets/logo-light.svg" style="width: 4rem; height: 4rem;" alt="Conseal logo">
   </picture>
 </p>
 
@@ -16,13 +16,13 @@
 ## Install
 
 ```bash
-npm install conseal
+npm install @consealdev/conseal
 ```
 
 ## Quick start
 
 ```ts
-import { seal, unseal, generateAesKey } from 'conseal'
+import { seal, unseal, generateAesKey } from '@consealdev/conseal'
 
 // Generate a key and encrypt
 const key = await generateAesKey()
@@ -131,7 +131,7 @@ Four functions cover the full device-registration ceremony:
 ### IndexedDB key storage
 
 ```ts
-import { saveCryptoKey, loadCryptoKey, deleteCryptoKey } from 'conseal'
+import { saveCryptoKey, loadCryptoKey, deleteCryptoKey } from '@consealdev/conseal'
 ```
 
 | Function | Description |

@@ -13,7 +13,7 @@ deleteCryptoKey(name: string): Promise<void>
 ## Example
 
 ```ts
-import { saveCryptoKey, loadCryptoKey, deleteCryptoKey } from 'conseal'
+import { saveCryptoKey, loadCryptoKey, deleteCryptoKey } from '@consealdev/conseal'
 
 // Store a key after generation
 await saveCryptoKey('my-ecdh-private', keyPair.privateKey)

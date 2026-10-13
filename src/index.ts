@@ -4,9 +4,9 @@
 /**
  * Conseal — browser-side zero-knowledge cryptography library.
  *
- * Import everything from 'conseal':
+ * Import everything from '@consealdev/conseal':
  *
- *   import { seal, unseal, wrapKey, init, sealMessage, loadCryptoKey, ... } from 'conseal'
+ *   import { seal, unseal, wrapKey, init, sealMessage, loadCryptoKey, ... } from '@consealdev/conseal'
  *
  * See docs/usage/ for per-function examples.
  */

@@ -14,7 +14,7 @@ rekeySecretKey(passphrase: string, oldSecretKey: Uint8Array, newSecretKey: Uint8
 ## Example: account setup
 
 ```ts
-import { wrapKey, unwrapKey, rekey } from 'conseal'
+import { wrapKey, unwrapKey, rekey } from '@consealdev/conseal'
 
 // Account setup: generate AEK, wrap with passphrase, store wrapped key + salt on server
 const aek = await crypto.subtle.generateKey(
@@ -33,7 +33,7 @@ const { wrappedKey: newWrapped, salt: newSalt } = await rekey('old-pass', 'new-p
 ## Example: with Secret Key (recommended)
 
 ```ts
-import { generateSecretKey, wrapKey, unwrapKey, rekey, rekeySecretKey } from 'conseal'
+import { generateSecretKey, wrapKey, unwrapKey, rekey, rekeySecretKey } from '@consealdev/conseal'
 
 const sk = generateSecretKey()
 // store sk in localStorage and keep an offline copy

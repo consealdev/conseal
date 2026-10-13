@@ -12,7 +12,7 @@ combinePassphraseAndSecretKey(passphrase: string, secretKey: Uint8Array): Promis
 ## Example: account setup with Secret Key
 
 ```ts
-import { generateSecretKey, wrapKey, unwrapKey, init } from 'conseal'
+import { generateSecretKey, wrapKey, unwrapKey, init } from '@consealdev/conseal'
 
 // Account setup — generate once, store device-side and keep an offline copy
 const secretKey = generateSecretKey()

@@ -12,7 +12,7 @@ AEK_KEY_ID: string  // 'aek'
 ## Example
 
 ```ts
-import { init, AEK_KEY_ID, load, seal } from 'conseal'
+import { init, AEK_KEY_ID, load, seal } from '@consealdev/conseal'
 
 // On new device after OAuth login:
 // 1. Fetch wrappedKey + salt from server (or accept user key file upload)
@@ -31,7 +31,7 @@ const { ciphertext, iv } = await seal(aek!, plaintext)
 ## Example: with Secret Key
 
 ```ts
-import { init, AEK_KEY_ID, load } from 'conseal'
+import { init, AEK_KEY_ID, load } from '@consealdev/conseal'
 
 // Load Secret Key from localStorage (stored at account setup)
 const secretKey = Uint8Array.from(atob(localStorage.getItem('conseal_sk')!), c => c.charCodeAt(0))

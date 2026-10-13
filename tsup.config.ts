@@ -3,7 +3,7 @@ import { defineConfig } from 'tsup'
 const banner = `/*!
  * Conseal __VERSION__ | Zero-knowledge cryptography and private communication
  * Copyright (c) 2026 Codesense
- * Licensed under the AGPL-3.0 License. https://github.com/codesensedev/conseal/blob/main/LICENSE
+ * Licensed under the AGPL-3.0 License. https://github.com/consealdev/conseal/blob/main/LICENSE
  */`
 
 export default defineConfig([

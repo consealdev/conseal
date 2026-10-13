@@ -13,7 +13,7 @@ verify(publicKey: CryptoKey, signature: ArrayBuffer, data: ArrayBuffer): Promise
 ## Example
 
 ```ts
-import { generateECDSAKeyPair, sign, verify } from 'conseal'
+import { generateECDSAKeyPair, sign, verify } from '@consealdev/conseal'
 
 // One-time: generate key pair
 const { publicKey, privateKey } = await generateECDSAKeyPair()

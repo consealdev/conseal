@@ -12,7 +12,7 @@ importPublicKeyFromJwk(jwk: JsonWebKey, algorithm: 'ECDH' | 'ECDSA'): Promise<Cr
 ## Example
 
 ```ts
-import { exportPublicKeyAsJwk, importPublicKeyFromJwk } from 'conseal'
+import { exportPublicKeyAsJwk, importPublicKeyFromJwk } from '@consealdev/conseal'
 
 // Export for server registry
 const jwk = await exportPublicKeyAsJwk(myPublicKey)

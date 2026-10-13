@@ -13,7 +13,7 @@ unsealMessage(recipientPrivateKey: CryptoKey, ciphertext: ArrayBuffer, iv: Uint8
 ## Example
 
 ```ts
-import { generateECDHKeyPair, sealMessage, unsealMessage, exportPublicKeyAsJwk, importPublicKeyFromJwk } from 'conseal'
+import { generateECDHKeyPair, sealMessage, unsealMessage, exportPublicKeyAsJwk, importPublicKeyFromJwk } from '@consealdev/conseal'
 
 // One-time: generate key pair, register public key with server
 const { publicKey, privateKey } = await generateECDHKeyPair()

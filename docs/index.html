@@ -374,7 +374,7 @@
       </div>
       <div class="rl-cluster rl-gap-m rl-align-center">
         <a href="demo.html" class="btn btn-primary" style="padding: 0.4rem 0.9rem; font-size: 0.85rem;">Live demo</a>
-        <a target="_blank" href="https://github.com/codesensedev/conseal" class="btn btn-ghost" style="padding: 0.4rem 0.9rem; font-size: 0.85rem;">GitHub</a>
+        <a target="_blank" href="https://github.com/consealdev/conseal" class="btn btn-ghost" style="padding: 0.4rem 0.9rem; font-size: 0.85rem;">GitHub</a>
         <button class="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark">☀</button>
       </div>
     </div>
@@ -399,7 +399,7 @@
 
       <button class="install-pill" onclick="copyInstall()" title="Copy to clipboard">
         <span class="prefix">$</span>
-        <span class="cmd">npm install conseal</span>
+        <span class="cmd">npm install @consealdev/conseal</span>
         <span class="copy-icon">⎘</span>
       </button>
 
@@ -491,7 +491,7 @@
             <strong>Initialise (once per device)</strong>
           </div>
           <div class="code-block rl-padding-l">
-            <div><span class="dim">import</span> * <span class="dim">as</span> <span class="bright">conseal</span> <span class="dim">from</span> <span class="yellow">'conseal'</span></div>
+            <div><span class="dim">import</span> * <span class="dim">as</span> <span class="bright">conseal</span> <span class="dim">from</span> <span class="yellow">'@consealdev/conseal'</span></div>
             <div>&nbsp;</div>
             <div class="dim">// Generates + persists an AEK in IndexedDB.</div>
             <div class="dim">// No-op on subsequent calls — idempotent.</div>
@@ -506,7 +506,7 @@
             <strong>Seal &amp; unseal</strong>
           </div>
           <div class="code-block rl-padding-l">
-            <div><span class="dim">import</span> * <span class="dim">as</span> <span class="bright">conseal</span> <span class="dim">from</span> <span class="yellow">'conseal'</span></div>
+            <div><span class="dim">import</span> * <span class="dim">as</span> <span class="bright">conseal</span> <span class="dim">from</span> <span class="yellow">'@consealdev/conseal'</span></div>
             <div>&nbsp;</div>
             <div class="dim">// AES-256-GCM. Returns Uint8Array (IV + ciphertext).</div>
             <div><span class="dim">const</span> <span class="bright">ct</span> = <span class="dim">await</span> conseal.<span class="yellow">seal</span>(plaintext, aek)</div>
@@ -523,7 +523,7 @@
             <strong>Share without a shared key</strong>
           </div>
           <div class="code-block rl-padding-l">
-            <div><span class="dim">import</span> * <span class="dim">as</span> <span class="bright">conseal</span> <span class="dim">from</span> <span class="yellow">'conseal'</span></div>
+            <div><span class="dim">import</span> * <span class="dim">as</span> <span class="bright">conseal</span> <span class="dim">from</span> <span class="yellow">'@consealdev/conseal'</span></div>
             <div>&nbsp;</div>
             <div class="dim">// Passcode-protected envelope (PBKDF2 + AES-GCM).</div>
             <div><span class="dim">const</span> <span class="bright">env</span> = <span class="dim">await</span> conseal.<span class="yellow">sealEnvelope</span>(data, <span class="yellow">'passphrase'</span>)</div>
@@ -719,7 +719,7 @@
           <div class="code-block rl-padding-l" style="min-width: 22rem; flex-shrink: 0;">
             <div class="dim">// ── Full key lifecycle example ───────</div>
             <div>&nbsp;</div>
-            <div><span class="dim">import</span> * <span class="dim">as</span> <span class="bright">conseal</span> <span class="dim">from</span> <span class="yellow">'conseal'</span></div>
+            <div><span class="dim">import</span> * <span class="dim">as</span> <span class="bright">conseal</span> <span class="dim">from</span> <span class="yellow">'@consealdev/conseal'</span></div>
             <div>&nbsp;</div>
             <div class="dim">// 1. Setup — generate AEK + 128-bit Secret Key</div>
             <div><span class="dim">const</span> <span class="bright">aek</span> = <span class="dim">await</span> crypto.subtle.<span class="yellow">generateKey</span>(<span class="dim">...</span>)</div>
@@ -750,7 +750,7 @@
       <p style="color: var(--color-muted); font-size: 1.05rem;">The interactive demo covers all seven modules. No server, no sign-up — just open your DevTools and watch the encryption happen.</p>
       <div class="rl-cluster rl-gap-m rl-justify-center">
         <a href="demo.html" class="btn btn-primary">Open live demo</a>
-        <a href="https://github.com/codesensedev/conseal" class="btn btn-ghost">View on GitHub</a>
+        <a href="https://github.com/consealdev/conseal" class="btn btn-ghost">View on GitHub</a>
       </div>
     </div>
   </section>
@@ -901,10 +901,10 @@
           </div>
           <div class="rl-stack rl-gap-s">
             <strong style="font-size: 0.8rem; color: var(--color-text);">Project</strong>
-            <a href="https://github.com/codesensedev/conseal" style="font-size: 0.875rem; color: var(--color-muted);">GitHub</a>
-            <a href="https://www.npmjs.com/package/@codesense/conseal" style="font-size: 0.875rem; color: var(--color-muted);">npm</a>
-            <a href="https://github.com/codesensedev/conseal/blob/main/LICENSE" style="font-size: 0.875rem; color: var(--color-muted);">License</a>
-            <a href="https://github.com/codesensedev/conseal/blob/main/CONTRIBUTING.md" style="font-size: 0.875rem; color: var(--color-muted);">Contributing</a>
+            <a href="https://github.com/consealdev/conseal" style="font-size: 0.875rem; color: var(--color-muted);">GitHub</a>
+            <a href="https://www.npmjs.com/package/@consealdev/conseal" style="font-size: 0.875rem; color: var(--color-muted);">npm</a>
+            <a href="https://github.com/consealdev/conseal/blob/main/LICENSE" style="font-size: 0.875rem; color: var(--color-muted);">License</a>
+            <a href="https://github.com/consealdev/conseal/blob/main/CONTRIBUTING.md" style="font-size: 0.875rem; color: var(--color-muted);">Contributing</a>
             <a href="threat-model.html" style="font-size: 0.875rem; color: var(--color-muted);">Threat model</a>
           </div>
         </div>
@@ -947,7 +947,7 @@
     }
 
     function copyInstall() {
-      navigator.clipboard.writeText('npm install conseal').then(() => {
+      navigator.clipboard.writeText('npm install @consealdev/conseal').then(() => {
         const t = document.getElementById('toast');
         t.classList.add('show');
         setTimeout(() => t.classList.remove('show'), 2000);

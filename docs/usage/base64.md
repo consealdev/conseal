@@ -14,7 +14,7 @@ fromBase64Url(b64url: string): Uint8Array
 ## Example
 
 ```ts
-import { toBase64, fromBase64, toBase64Url, fromBase64Url } from 'conseal'
+import { toBase64, fromBase64, toBase64Url, fromBase64Url } from '@consealdev/conseal'
 
 // Standard base64 — for storage or text-based transmission
 const encoded = toBase64(ciphertext)   // "SGVsbG8gd29ybGQ="
