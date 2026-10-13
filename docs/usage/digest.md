@@ -11,7 +11,7 @@ digest(data: ArrayBuffer | Uint8Array): Promise<ArrayBuffer>
 ## Example
 
 ```ts
-import { digest, toBase64 } from 'conseal'
+import { digest, toBase64 } from '@consealdev/conseal'
 
 const data = new TextEncoder().encode('hello world')
 const hash = await digest(data)

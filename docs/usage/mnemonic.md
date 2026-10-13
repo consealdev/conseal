@@ -12,7 +12,7 @@ recoverWithMnemonic(mnemonic: string): Promise<CryptoKey>
 ## Example
 
 ```ts
-import { generateMnemonic, recoverWithMnemonic } from 'conseal'
+import { generateMnemonic, recoverWithMnemonic } from '@consealdev/conseal'
 
 // Account setup: generate mnemonic, show it once for the user to write down
 const mnemonic = generateMnemonic()

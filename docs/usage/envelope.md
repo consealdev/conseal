@@ -21,7 +21,7 @@ interface SealedEnvelope {
 ## Example
 
 ```ts
-import { sealEnvelope, unsealEnvelope, encodeEnvelope, decodeEnvelope } from 'conseal'
+import { sealEnvelope, unsealEnvelope, encodeEnvelope, decodeEnvelope } from '@consealdev/conseal'
 
 // Sender: seal the file and upload the result to the server
 const plaintext = await file.arrayBuffer()

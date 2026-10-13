@@ -1,11 +1,11 @@
 {
-  "name": "@codesense/conseal",
+  "name": "@consealdev/conseal",
   "version": "0.0.0",
   "license": "AGPL-3.0-or-later OR Commercial",
   "homepage": "https://conseal.dev",
   "repository": {
     "type": "git",
-    "url": "https://github.com/codesensedev/conseal"
+    "url": "https://github.com/consealdev/conseal"
   },
   "description": "Browser-side zero-knowledge cryptography library using SubtleCrypto.",
   "type": "module",

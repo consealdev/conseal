@@ -12,7 +12,7 @@ unseal(key: CryptoKey, ciphertext: ArrayBuffer, iv: Uint8Array): Promise<ArrayBu
 ## Example
 
 ```ts
-import { seal, unseal } from 'conseal'
+import { seal, unseal } from '@consealdev/conseal'
 
 const key = await crypto.subtle.generateKey(
   { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']
