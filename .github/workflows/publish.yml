@@ -10,7 +10,7 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    environment: npm   # v* tags only; npm trusts only this environment
+    environment: release  # v* tags only; npm trusts only this environment
     permissions:
       contents: read
       id-token: write
