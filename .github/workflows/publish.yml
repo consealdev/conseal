@@ -28,7 +28,7 @@ jobs:
   rc:
     name: Publish release candidate
     needs: test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write   # create the pre-release
     env:
@@ -60,7 +60,7 @@ jobs:
 
   publish:
     if: ${{ !contains(github.ref_name, '-') }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: release  # v* tags only; npm trusts only this environment
     permissions:
       contents: read
