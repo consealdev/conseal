@@ -57,3 +57,14 @@ export {
   deriveVerificationCode,
 } from './circle'
 export type { WrappedAEK, JoinRequest, SealedAEK } from './circle'
+
+// Shared encrypted spaces across users (Channel)
+export {
+  createChannel,
+  unwrapChannelAEK,
+  createChannelJoinRequest,
+  deriveChannelVerificationCode,
+  authorizeChannelJoin,
+  finalizeChannelJoin,
+} from './channel'
+export type { ChannelJoinRequest } from './channel'
