@@ -113,7 +113,7 @@ Four functions cover the full device-registration ceremony:
 | `createJoinRequest(deviceMeta?)` | New device generates an ephemeral ECDH key pair. Returns the join request payload, the ephemeral private key (memory-only), and a `verificationCode` to display to the user. |
 | `authorizeJoin(joinRequest, wrappedAEK, passphrase, secretKey, serverReceivedAt)` | Trusted device unwraps its AEK and seals it for the new device via ECDH. `serverReceivedAt` is when the server received the request, in Unix ms; requests older than 5 minutes are rejected. |
 | `finalizeJoin(sealedAEK, ephemeralPrivateKey, passphrase, secretKey, aekCommitment)` | New device unseals the AEK, verifies the commitment, and re-wraps it under its own credentials. Throws on commitment mismatch. |
-| `deriveVerificationCode(ephemeralPublicKey)` | Derives a `XX-XX-XX-XX` hex code from a public key. Both devices must show matching codes before approval to prevent MITM. |
+| `deriveVerificationCode(ephemeralPublicKey)` | Derives an 80-bit code from a public key, as 16 base32 characters: `7KQ2-M9XD-4RTF-B8NW`. Both devices must show matching codes before approval to prevent MITM. |
 
 ### Shared encrypted spaces (Channel)
 

@@ -126,5 +126,5 @@ A device that joins a circle calls `GET /users/me/channels` and opens each copy 
 - `channelAEK` is non-extractable. Seal content with `seal(channelAEK, …)`, or wrap per-item DEKs with it.
 - A wrapped channel AEK is 60 bytes: IV (12) ‖ AES-GCM(circleAEK, channel AEK), AAD = UTF-8(`"conseal-channel:v1:" + channelId`). It opens only as the channel it was wrapped for, and can't pass for any other key the circle AEK wraps.
 - A mnemonic recovery restores the circle AEK, and with it every channel copy.
-- The verification code has the circle's format, `XX-XX-XX-XX`, but a different value for the same ephemeral key.
+- The verification code has the circle's format, `XXXX-XXXX-XXXX-XXXX`, but a different value for the same ephemeral key.
 - Base64-encode the binary fields on the wire: `wrappedChannelAEK`, `aekCommitment`, and the `SealedAEK`'s `ciphertext` and `iv`.

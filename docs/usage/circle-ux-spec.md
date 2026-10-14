@@ -32,7 +32,7 @@ New device                   Trusted device (already in circle)
 | Element | Requirement |
 |---------|-------------|
 | Status indicator | Make clear that a request is pending and that action is needed on another device |
-| **Verification code** | Display prominently (large text, high contrast). Format: `XX-XX-XX-XX`. Label it clearly — e.g. "Verification code" or "Security code" |
+| **Verification code** | Display prominently (large text, high contrast). Format: `XXXX-XXXX-XXXX-XXXX`, 16 base32 characters. Label it clearly — e.g. "Verification code" or "Security code" |
 | Instructions | Tell the user to open the app on an existing device and look for an approval request there |
 | Expiry | Show the remaining time or expiry time. When the request expires, transition to the failed state (Moment 4) automatically |
 
@@ -43,6 +43,7 @@ The verification code is the **primary defence against server-side MITM**. It mu
 - Minimum font size: 24pt or equivalent
 - High contrast against background
 - Not truncated, not scrolled off screen by default
+- Ask the user to compare all four groups: a match in the first group alone proves nothing
 
 ### Polling
 
@@ -91,7 +92,7 @@ Do not include the verification code in the notification — it is shown in Mome
 
 A tap on "Approve" without displaying and confirming the verification code is insufficient. The confirmation step must be **visible and explicit** — not a silent checkbox or a modal that auto-dismisses.
 
-**Correct:** "The verification code on your new device should show **A3-K9-F2**. Does it match?"
+**Correct:** "The verification code on your new device should show **7KQ2-M9XD-4RTF-B8NW**. Does it match?"
 
 **Not sufficient:** A single "Approve" button on a screen that shows only the device name.
 

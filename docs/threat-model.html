@@ -438,11 +438,12 @@
               <div class="threat-row">
                 <span class="threat-row-label">Defence</span>
                 <p>PBKDF2 at 600,000 HMAC-SHA-256 iterations makes offline passphrase guessing expensive. Combined with a 128-bit Secret Key (which never reaches the server), the wrapping key cannot be brute-forced even with specialised hardware.</p>
+                <p>In a join, the server relays the new device's request, so it can put an ephemeral public key of its own in place of the device's and receive the AEK sealed to it. The verification code catches this: each device shows 80 bits of the SHA-256 of the key it holds, and the user approves only when the two match. A server needs a key whose code matches the new device's, about 2<sup>80</sup> tries, which is out of reach both within the 5-minute window and as a table built in advance. A channel invite's code has the same length.</p>
               </div>
               <hr class="threat-divider">
               <div class="threat-row">
                 <span class="threat-row-label">Residual risk</span>
-                <p>A weak passphrase <em>without</em> a Secret Key reduces to the strength of that passphrase alone. Callers should enforce minimum passphrase entropy or mandate Secret Key use.</p>
+                <p>A weak passphrase <em>without</em> a Secret Key reduces to the strength of that passphrase alone. Callers should enforce minimum passphrase entropy or mandate Secret Key use. An app that approves a join without the user comparing the whole code loses the join's defence.</p>
               </div>
             </div>
           </div>
@@ -733,6 +734,12 @@
                   <td>HKDF-SHA-256</td>
                   <td>Empty salt · info <code>conseal-mnemonic-aek-v1</code></td>
                   <td>The entropy is already uniform; the label keeps this key apart from any other use of the same entropy</td>
+                </tr>
+                <tr>
+                  <td>Verification code</td>
+                  <td>SHA-256</td>
+                  <td>First 80 bits · 16 Crockford base32 characters: <code>XXXX-XXXX-XXXX-XXXX</code></td>
+                  <td>A server relaying a join needs a key whose code matches: 2<sup>80</sup> tries is out of reach live and as a precomputed table, where 32 bits falls to one GPU in under a minute. The alphabet has no I, L, O or U, so no two characters look alike</td>
                 </tr>
                 <tr>
                   <td>Randomness</td>

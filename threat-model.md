@@ -52,7 +52,9 @@ Conseal is a browser-side cryptography library built entirely on the [Web Crypto
 
 **Conseal's defence:** PBKDF2 with 600,000 HMAC-SHA-256 iterations makes offline passphrase guessing expensive. Combined with a 128-bit Secret Key (which never reaches the server), the server cannot brute-force the wrapping key even with indefinite compute time.
 
-**Residual risk:** A weak passphrase without a Secret Key reduces to the strength of that passphrase alone. Callers should enforce minimum passphrase strength or mandate Secret Key use.
+**In a join,** the server relays the new device's request, so it can put an ephemeral public key of its own in place of the device's and receive the AEK sealed to it. The verification code catches this: each device shows 80 bits of the SHA-256 of the key it holds, and the user approves only when the two match. A server needs a key whose code matches the new device's, about 2⁸⁰ tries, which is out of reach both within the 5-minute window and as a table built in advance. A channel invite's code (§8) has the same length.
+
+**Residual risk:** A weak passphrase without a Secret Key reduces to the strength of that passphrase alone. Callers should enforce minimum passphrase strength or mandate Secret Key use. An app that approves a join without the user comparing the whole code loses the join's defence.
 
 ---
 
@@ -198,6 +200,7 @@ The security properties documented here hold **only if** the following condition
 | Hashing | SHA-256 | — | Universal; used as PBKDF2 PRF and standalone digest |
 | Mnemonic encoding | BIP-39 | 24 words (256-bit entropy + 8-bit checksum) | Human-writeable offline backup; well-specified; implemented by `@scure/bip39` |
 | Mnemonic to AEK | HKDF-SHA-256 | Empty salt, info `conseal-mnemonic-aek-v1` | The entropy is already uniform; the label keeps this key apart from any other use of the same entropy |
+| Verification code | SHA-256 | First 80 bits, as 16 Crockford base32 characters: `XXXX-XXXX-XXXX-XXXX` | A server relaying a join needs a key whose code matches: 2⁸⁰ tries is out of reach live and as a precomputed table, where 32 bits falls to one GPU in under a minute. The alphabet has no I, L, O or U, so no two characters look alike |
 | Randomness | `crypto.getRandomValues` | — | CSPRNG; provided by the browser/OS; no user-space RNG |
 
 ---
