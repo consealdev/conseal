@@ -2,7 +2,7 @@ openapi: 3.1.0
 
 info:
   title: Conseal Sync Contract
-  version: 0.1.0
+  version: 0.2.0
   license:
     name: MIT
     identifier: MIT
@@ -23,7 +23,7 @@ info:
     **Collections are ids, not names.** A collection id is an identifier the app assigns, such as
     `7f3a9c21`, never the collection's name, so the storage tier, its logs and its metrics never
     hold the app's vocabulary. The server accepts only the ids it is configured with (see
-    `getConfig`).
+    `getConfig`), and `keyring`, which no app configures (see *The keyring*).
 
     ## The record envelope
 
@@ -44,8 +44,28 @@ info:
       the same AAD, the tag appended: 60 bytes.
 
     Re-sealing after a merge is a new write: a new DEK, a new IV, a new ciphertext. A record id is a
-    random (version 4) UUID in lowercase, minted by the client when the record is created. A
-    time-ordered UUID would tell the server when each record was made.
+    random (version 4) UUID in lowercase, minted by the client when the record is created, the
+    keyring's aside. A time-ordered UUID would tell the server when each record was made.
+
+    ## The keyring
+
+    The collection id `keyring` is reserved for the user's identity: an ECDH P-256 key pair that
+    messages to the user are sealed to, and an ECDSA P-256 key pair that signs as the user. It
+    travels as a record sealed under the AEK, so every device in the user's circle holds the same
+    pairs, and a device that joins the circle, or recovers it from the mnemonic, gets them from its
+    next pull.
+
+    - **The server** accepts `keyring` without being configured with it, and lists it in
+      `getConfig`. It stores the record like any other, and no app may configure the id itself.
+    - **The record** is the collection's only one, with the fixed id
+      `00000000-0000-4000-8000-000000000000`, sealed as above. Its plaintext is
+      `{"schemaVersion": 1, "ecdh": <JWK>, "ecdsa": <JWK>}`, each JWK a P-256 private key with
+      `kty`, `crv`, `x`, `y` and `d`.
+    - **It is written once.** A client that pulls the collection and finds no record creates one
+      and pushes it with a `baseVersion` of null. When another client got there first, the push
+      answers `409`, and the client takes `current` in place of the pairs it made. A client uses
+      no pair it made before its push succeeds, so two clients that create the record at once end
+      up with one identity. No client changes or deletes the record after that.
 
     ## Order and consistency
 
@@ -376,14 +396,16 @@ components:
 
     CollectionId:
       type: string
-      description: An identifier the app assigns, never the collection's name
+      description: An identifier the app assigns, never the collection's name, or the reserved `keyring`
       pattern: '^[A-Za-z0-9_-]{1,64}$'
       examples:
         - 7f3a9c21
 
     RecordId:
       type: string
-      description: A random (version 4) UUID in lowercase, minted by the client
+      description: |
+        A random (version 4) UUID in lowercase, minted by the client. The keyring's record has the
+        fixed id `00000000-0000-4000-8000-000000000000`
       format: uuid
       pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
       examples:
@@ -409,7 +431,7 @@ components:
       properties:
         collections:
           type: array
-          description: The collections the server accepts. Any other id answers `404`
+          description: The collections the server accepts, `keyring` among them. Any other id answers `404`
           items:
             $ref: '#/components/schemas/CollectionLimits'
         maxBatchItems:
