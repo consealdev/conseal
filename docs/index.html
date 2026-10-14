@@ -367,6 +367,7 @@
           <a href="#install"   style="color: inherit;">Install</a>
           <a href="#api"       style="color: inherit;">API</a>
           <a href="#circle"    style="color: inherit;">Circle</a>
+          <a href="#channel"   style="color: inherit;">Channel</a>
           <a href="#concepts"  style="color: inherit;">Concepts</a>
           <a href="#glossary"  style="color: inherit;">Glossary</a>
           <a href="demo.html" style="color: inherit;">Demo</a>
@@ -658,6 +659,26 @@
           </div>
         </div>
 
+        <!-- Channel -->
+        <div id="channel">
+          <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;">
+            <span class="section-label">Channel — shared encrypted spaces across users</span>
+          </div>
+          <div class="card" style="overflow-x:auto;">
+            <table class="api-table">
+              <thead><tr><th>Function</th><th>Description</th></tr></thead>
+              <tbody>
+                <tr><td class="fn">createChannel(circleAEK)</td><td class="desc">Generates the channel AEK and wraps it under the creator's circle AEK, so every device in their circle opens it. Returns <code>channelId</code>, <code>channelAEK</code>, <code>wrappedChannelAEK</code>, and <code>aekCommitment</code>.</td></tr>
+                <tr><td class="fn">unwrapChannelAEK(channelId, wrappedChannelAEK, circleAEK)</td><td class="desc">Opens a member's copy on any of their devices, including one that joined the circle later. Throws if it was wrapped for another channel or under another circle AEK.</td></tr>
+                <tr><td class="fn">createChannelJoinRequest(channelId, aekCommitment)</td><td class="desc">Invitee generates an ephemeral ECDH key pair, after taking the channel's commitment. Returns the request, the ephemeral private key (hold in memory only), and a <code>verificationCode</code> to display prominently.</td></tr>
+                <tr><td class="fn">deriveChannelVerificationCode(joinRequest, wrappedChannelAEK, circleAEK)</td><td class="desc">Member derives the code for a request, from the channel AEK they hold. Both users must confirm the codes match.</td></tr>
+                <tr><td class="fn">authorizeChannelJoin(joinRequest, wrappedChannelAEK, circleAEK, serverReceivedAt)</td><td class="desc">Member seals the channel AEK for the invitee via ECDH. Rejects requests older than 5 minutes.</td></tr>
+                <tr><td class="fn">finalizeChannelJoin(sealedAEK, ephemeralPrivateKey, circleAEK, channelId, aekCommitment)</td><td class="desc">Invitee unseals the channel AEK, verifies it against <code>aekCommitment</code>, and wraps it under their circle AEK. Throws on commitment mismatch.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         <!-- JWK / init / mnemonic / utils -->
         <div>
           <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;">
@@ -843,6 +864,17 @@
           <p style="font-size:0.8rem;color:var(--color-muted);"><strong style="color:var(--color-text);">Used by:</strong> <code style="font-size:0.78rem;color:var(--color-code-text);background:var(--color-code-bg);padding:0.1em 0.3em;border-radius:3px;">init</code>, <code style="font-size:0.78rem;color:var(--color-code-text);background:var(--color-code-bg);padding:0.1em 0.3em;border-radius:3px;">wrapKey</code>, <code style="font-size:0.78rem;color:var(--color-code-text);background:var(--color-code-bg);padding:0.1em 0.3em;border-radius:3px;">generateMnemonic</code></p>
         </div>
 
+        <!-- Channel AEK -->
+        <div class="card rl-padding-l rl-stack rl-gap-m">
+          <div class="rl-cluster rl-gap-m rl-align-center">
+            <span style="font-family:'SF Mono','Fira Code',monospace;font-size:1rem;font-weight:700;color:var(--color-code-yellow);">Channel AEK</span>
+            <span class="badge badge-muted">sharing</span>
+          </div>
+          <p style="font-size:0.75rem;font-weight:600;letter-spacing:0.04em;color:var(--color-muted);">A key shared by the members of a channel</p>
+          <p style="font-size:0.875rem;color:var(--color-muted);">A random AES-256-GCM key for a shared encrypted space across users. Each member holds it wrapped under their own circle AEK, so every device in their circle can open it. An invite runs the circle's join ceremony between two users, with a verification code that also covers the channel id and the key's commitment.</p>
+          <p style="font-size:0.8rem;color:var(--color-muted);"><strong style="color:var(--color-text);">Used by:</strong> <code style="font-size:0.78rem;color:var(--color-code-text);background:var(--color-code-bg);padding:0.1em 0.3em;border-radius:3px;">createChannel</code>, <code style="font-size:0.78rem;color:var(--color-code-text);background:var(--color-code-bg);padding:0.1em 0.3em;border-radius:3px;">unwrapChannelAEK</code>, <code style="font-size:0.78rem;color:var(--color-code-text);background:var(--color-code-bg);padding:0.1em 0.3em;border-radius:3px;">authorizeChannelJoin</code>, <code style="font-size:0.78rem;color:var(--color-code-text);background:var(--color-code-bg);padding:0.1em 0.3em;border-radius:3px;">finalizeChannelJoin</code></p>
+        </div>
+
         <!-- IV / Nonce -->
         <div class="card rl-padding-l rl-stack rl-gap-m">
           <div class="rl-cluster rl-gap-m rl-align-center">
@@ -898,6 +930,7 @@
             <a href="#api" style="font-size: 0.875rem; color: var(--color-muted);">PBKDF2 / Envelope</a>
             <a href="#api" style="font-size: 0.875rem; color: var(--color-muted);">BIP-39 Mnemonic</a>
             <a href="#circle" style="font-size: 0.875rem; color: var(--color-muted);">Circle</a>
+            <a href="#channel" style="font-size: 0.875rem; color: var(--color-muted);">Channel</a>
           </div>
           <div class="rl-stack rl-gap-s">
             <strong style="font-size: 0.8rem; color: var(--color-text);">Project</strong>

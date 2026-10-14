@@ -33,7 +33,7 @@ import { recoverWithMnemonic } from './mnemonic'
 import { buffersEqual } from './compare'
 
 /** Maximum age of a join request before it is considered stale (5 minutes). */
-const JOIN_TTL_MS = 5 * 60 * 1000
+export const JOIN_TTL_MS = 5 * 60 * 1000
 
 // ---------- Types ----------
 
@@ -82,9 +82,17 @@ export interface SealedAEK {
  * infeasible within the 5-minute TTL window.
  */
 export async function deriveVerificationCode(ephemeralPublicKey: JsonWebKey): Promise<string> {
-  const key = await importPublicKeyFromJwk(ephemeralPublicKey, 'ECDH')
-  const raw = await crypto.subtle.exportKey('raw', key)
-  const hash = await digest(raw)
+  return formatVerificationCode(await digest(await exportRawPublicKey(ephemeralPublicKey)))
+}
+
+/** Exports an ECDH public key JWK as its uncompressed point bytes (65 bytes for P-256). */
+export async function exportRawPublicKey(publicKey: JsonWebKey): Promise<ArrayBuffer> {
+  const key = await importPublicKeyFromJwk(publicKey, 'ECDH')
+  return crypto.subtle.exportKey('raw', key)
+}
+
+/** Formats the first 4 bytes of a hash as uppercase hex pairs separated by dashes: "A3-4F-9C-12". */
+export function formatVerificationCode(hash: ArrayBuffer): string {
   const bytes = new Uint8Array(hash)
   const hex = (b: number) => b.toString(16).padStart(2, '0').toUpperCase()
   return `${hex(bytes[0]!)}-${hex(bytes[1]!)}-${hex(bytes[2]!)}-${hex(bytes[3]!)}`
