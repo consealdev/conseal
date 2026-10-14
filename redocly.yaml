@@ -1,0 +1,7 @@
+extends:
+  - recommended
+
+rules:
+  # Every route needs a signed-in user, but the sign-in is the host app's, whatever that is. There is
+  # no scheme for this contract to name.
+  security-defined: off
