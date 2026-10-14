@@ -111,8 +111,9 @@ paths:
 
         **`maxRecordBytes` comes from the storage backend.** It is the backend's item limit less the
         space the rest of a stored record takes, never a separate setting, so a record the server
-        accepts is always one its storage can hold. DynamoDB items are at most 400 KB, which leaves
-        about 285 KB of plaintext once base64 and the other attributes are counted.
+        accepts is always one its storage can hold. DynamoDB items are at most 400 KB, and an index
+        that keeps a copy of the record counts against the same 400 KB: a DynamoDB backend with one
+        such index, as the .NET one has, accepts about 200 KB.
       responses:
         '200':
           description: The server's collections and limits
@@ -435,7 +436,7 @@ components:
           minimum: 1
           description: The largest decoded `ciphertext` a record may have, in bytes
           examples:
-            - 291000
+            - 202752
         maxBlobBytes:
           type: [integer, 'null']
           minimum: 1
