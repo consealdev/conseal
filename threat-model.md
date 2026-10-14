@@ -1,8 +1,8 @@
 # Conseal Sync threat model
 
-What the contract in [`openapi.yaml`](openapi.yaml) protects, what a server that follows it still learns, and what a
-server that doesn't follow it can still do. It sits on top of conseal's own threat model, which covers the keys, the
-circle and the join ceremony.
+What the contract in [`openapi.yaml`](openapi.yaml) and [`circle.yaml`](circle.yaml) protects, what a server that
+follows it still learns, and what a server that doesn't follow it can still do. It sits on top of conseal's own threat
+model, which covers the keys, the circle and the join ceremony.
 
 ## Who is trusted
 
@@ -93,6 +93,29 @@ proven gone.
   through it.
 - Blobs go up before the record that refers to them, so a record whose push never happens leaves a blob behind. It is
   ciphertext and costs storage, not privacy. A server may delete blobs whose record never appears.
+
+## The circle routes
+
+[`circle.yaml`](circle.yaml) moves key material between a user's devices. Conseal's own threat model covers the
+ceremony's cryptography; this section covers what the server holds and what the contract makes it refuse.
+
+- **What it holds.** Each device's wrapped AEK, the AEK commitment, device names and platforms, and while a join waits,
+  the new device's public key, then the AEK and a passphrase check sealed to that key. None of it opens without what
+  stays on the devices: a passphrase and a Secret Key, or the new device's private key. The passphrase check is a
+  salted PBKDF2 hash and travels sealed, so the server holds nothing to guess a passphrase against.
+- **What it sees.** When devices join and are revoked, how many there are, and what their users call them.
+- **A substituted key.** A dishonest server can replace a join request's public key with its own, to receive the AEK
+  sealed to it. The verification code stops this: it is derived from the key, so the two devices show different codes,
+  and the approving device seals nothing until the user has confirmed they match.
+- **A substituted commitment.** A server that changes the commitment can make a key of its choosing pass a new device's
+  check, so the commitment is written once. A server that lies about it from the start isn't stopped by this contract.
+- **A replayed join.** A join request is used once and expires by the server's clock, so an old approval can't complete
+  a later join.
+- **A device added without the ceremony.** A save with no join request is how recovery works, and the server can't tell
+  it from someone with the user's sign-in adding a device. That device holds nothing it can open, and the server tells
+  the user, so a device they don't know is noticed and revoked.
+- **Revoking.** A revoked device keeps the AEK it held (see *Out of scope*). The server deletes its wrapped AEK, refuses
+  it from then on, and tells the user when it tries again.
 
 ## Out of scope
 
