@@ -25,6 +25,7 @@ Beside the routes, `info.description` in [`openapi.yaml`](openapi.yaml) holds th
 
 - **The record envelope:** a fresh DEK per write, wrapped under the user's AEK, and the AAD that binds each ciphertext
   to its collection and record
+- **The keyring:** the reserved collection that carries the user's identity key pairs to every device in the circle
 - **Order and consistency:** a server-assigned `seq` and a signed cursor, so a pull never skips a write and no client
   clock is involved
 - **What a client does with each answer:** a `409` is a merge instruction, `400` and `413` are permanent, `429` and
@@ -53,7 +54,7 @@ doesn't can still do.
 
 ### Backend implementations
 
-Use `openapi.yaml` and `circle.yaml` as your build target. Three things are easy to get wrong:
+Use `openapi.yaml` and `circle.yaml` as your build target. Four things are easy to get wrong:
 
 - **`seq` in commit order, read consistently.** A pull must never skip a write, so the server assigns `seq` as writes
   commit and pages from a strongly consistent read. An eventually consistent index can show a later write before an
@@ -62,6 +63,8 @@ Use `openapi.yaml` and `circle.yaml` as your build target. Three things are easy
   never a separate setting, so a record the server accepts is always one it can store.
 - **No identity of its own.** The user id comes from the host app's sign-in, and every route acts on that user's data
   only.
+- **`keyring` always accepted.** The keyring collection is the client's, not the app's: the server accepts and lists it
+  without being configured with it.
 
 ### Clients
 

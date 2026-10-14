@@ -79,6 +79,27 @@ answer `409` forever (destroy). A client that loops on conflicts for the same re
 A client that counted a `409` as a failure would stop syncing a record edited on two devices at once, for good and
 without a word. So the contract makes a `409` a merge instruction, and keeps permanent failure for `400` and `413`.
 
+## The keyring
+
+The `keyring` record carries the user's identity: the private keys that open messages sealed to the user and sign as
+the user. It is sealed under the AEK like any record, so the server holds it without being able to open it.
+
+- **What the server learns.** That the user has an identity, and when it was made: the record's write is dated like any
+  other. The public keys travel inside the ciphertext too; whatever directory an app publishes them in is outside this
+  contract.
+- **Who holds it.** Every device that holds the AEK can open it, so the identity reaches every device in the circle,
+  and a device that recovers the circle from the mnemonic gets it back while the server still holds the record. The
+  same goes for a revoked device: it keeps the identity, as it keeps the AEK (see *Out of scope*).
+- **A substituted identity.** A server can't make a client take an identity of its own: a record it seals itself
+  doesn't open under the AEK, and a client that finds the record unreadable doesn't replace it with one it makes.
+- **A second identity.** A server that hides the record from a client makes that client create one, and the user's
+  devices can then end up holding different identities, or a device can be served the other one in place of its own.
+  Each identity was made on one of the user's devices, so this costs availability, not secrecy: a message sealed to
+  one identity doesn't open on a device holding the other. Against an honest server the fixed record id and the `409`
+  leave the user with one identity.
+- **Exports.** A client leaves the keyring out of every export and backup. A file that carried it would let whoever got
+  the file read every message sealed to the user.
+
 ## Deletes
 
 A tombstone drops the record's ciphertext and the server deletes the record's blobs. The client can't check that the
@@ -127,6 +148,7 @@ ceremony's cryptography; this section covers what the server holds and what the 
 
 - A device that is compromised while unlocked: it holds the AEK.
 - A weak passphrase, and losing the mnemonic: conseal's threat model covers both.
-- Revoked devices: revoking a device stops it syncing but doesn't take back the AEK it held. Making a revoked device
-  unable to read new data needs AEK rotation, which this version doesn't define.
+- Revoked devices: revoking a device stops it syncing but doesn't take back the AEK it held, or the identity in the
+  keyring. Making a revoked device unable to read new data needs AEK rotation, and a new identity, which this version
+  doesn't define.
 - Denial of service, and the host app's sign-in itself.
