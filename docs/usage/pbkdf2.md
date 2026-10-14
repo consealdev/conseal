@@ -1,12 +1,12 @@
 # wrapKey / unwrapKey / rekey / rekeySecretKey
 
-PBKDF2-SHA256 key derivation and AES-KW key wrapping. Use this to protect an AEK with a user passphrase, optionally hardened with a [Secret Key](./secret-key.md).
+PBKDF2-SHA256 key derivation and AES-GCM key wrapping. Use this to protect an AEK with a user passphrase, optionally hardened with a [Secret Key](./secret-key.md).
 
 ## Signatures
 
 ```ts
 wrapKey(passphrase: string, key: CryptoKey, secretKey?: Uint8Array): Promise<{ wrappedKey: ArrayBuffer, salt: Uint8Array }>
-unwrapKey(passphrase: string, wrappedKey: ArrayBuffer, salt: Uint8Array, secretKey?: Uint8Array): Promise<CryptoKey>
+unwrapKey(passphrase: string, wrappedKey: ArrayBuffer, salt: Uint8Array, secretKey?: Uint8Array, extractable?: boolean): Promise<CryptoKey>
 rekey(oldPassphrase: string, newPassphrase: string, wrappedKey: ArrayBuffer, salt: Uint8Array, secretKey?: Uint8Array): Promise<{ wrappedKey: ArrayBuffer, salt: Uint8Array }>
 rekeySecretKey(passphrase: string, oldSecretKey: Uint8Array, newSecretKey: Uint8Array, wrappedKey: ArrayBuffer, salt: Uint8Array): Promise<{ wrappedKey: ArrayBuffer, salt: Uint8Array }>
 ```
@@ -55,8 +55,9 @@ const { wrappedKey: rotated, salt: rotatedSalt } = await rekeySecretKey('my-pass
 ## Notes
 
 - `wrapKey()` requires the key to have `extractable: true`. Throws if `key.extractable` is false.
-- `unwrapKey()` always returns `extractable: false` — safe for IndexedDB storage.
+- `unwrapKey()` returns `extractable: false` unless `extractable` is `true` — safe for IndexedDB storage. Ask for an extractable key only to transfer it, as the Circle ceremony does.
 - PBKDF2 at 600,000 iterations takes ~200–500ms — this is intentional offline brute-force protection.
 - The `salt` is not secret. Store it alongside `wrappedKey`.
-- When a `secretKey` is provided, it is combined with the passphrase via SHA-256 before PBKDF2 runs. An attacker who steals `wrappedKey` and `salt` cannot brute-force without also knowing the Secret Key.
+- `wrappedKey` is the 12-byte AES-GCM IV followed by the ciphertext and its tag. A wrong passphrase or Secret Key fails the tag and throws.
+- When a `secretKey` is provided, it is combined with the passphrase by HMAC-SHA-256, keyed by the Secret Key, before PBKDF2 runs. An attacker who steals `wrappedKey` and `salt` cannot brute-force without also knowing the Secret Key.
 - `rekeySecretKey` is a rare, heavyweight operation — use it only when the Secret Key is compromised. It requires re-enrolling all devices.

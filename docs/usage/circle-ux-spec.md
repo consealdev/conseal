@@ -32,7 +32,7 @@ New device                   Trusted device (already in circle)
 | Element | Requirement |
 |---------|-------------|
 | Status indicator | Make clear that a request is pending and that action is needed on another device |
-| **Verification code** | Display prominently (large text, high contrast). Format: `XX-XX-XX`. Label it clearly — e.g. "Verification code" or "Security code" |
+| **Verification code** | Display prominently (large text, high contrast). Format: `XX-XX-XX-XX`. Label it clearly — e.g. "Verification code" or "Security code" |
 | Instructions | Tell the user to open the app on an existing device and look for an approval request there |
 | Expiry | Show the remaining time or expiry time. When the request expires, transition to the failed state (Moment 4) automatically |
 

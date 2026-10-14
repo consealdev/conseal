@@ -12,7 +12,7 @@ AEK_KEY_ID: string  // 'aek'
 ## Example
 
 ```ts
-import { init, AEK_KEY_ID, load, seal } from '@consealdev/conseal'
+import { init, AEK_KEY_ID, loadCryptoKey, seal } from '@consealdev/conseal'
 
 // On new device after OAuth login:
 // 1. Fetch wrappedKey + salt from server (or accept user key file upload)
@@ -24,20 +24,20 @@ const salt = Uint8Array.from(atob(resp.salt), c => c.charCodeAt(0))
 await init(wrappedKey, salt, userPassphrase)
 
 // 3. AEK is now in IndexedDB — load and use it
-const aek = await load(AEK_KEY_ID)
+const aek = await loadCryptoKey(AEK_KEY_ID)
 const { ciphertext, iv } = await seal(aek!, plaintext)
 ```
 
 ## Example: with Secret Key
 
 ```ts
-import { init, AEK_KEY_ID, load } from '@consealdev/conseal'
+import { init, AEK_KEY_ID, loadCryptoKey } from '@consealdev/conseal'
 
 // Load Secret Key from localStorage (stored at account setup)
 const secretKey = Uint8Array.from(atob(localStorage.getItem('conseal_sk')!), c => c.charCodeAt(0))
 
 await init(wrappedKey, salt, userPassphrase, secretKey)
-const aek = await load(AEK_KEY_ID)
+const aek = await loadCryptoKey(AEK_KEY_ID)
 ```
 
 ## Notes

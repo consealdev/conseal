@@ -33,6 +33,6 @@ await init(wrappedKey, salt, 'my-strong-passphrase', storedSk)
 
 - `generateSecretKey()` returns a fresh random `Uint8Array` of 16 bytes (128-bit). Call it once at account setup.
 - Store the Secret Key in `localStorage` on each enrolled device for daily use (user only types their passphrase).
-- Keep an offline copy (printed or saved to a password manager) — losing both the passphrase and the Secret Key means permanent lockout.
+- Keep an offline copy (printed or saved to a password manager). Unwrapping needs both factors, so losing either one locks the user out unless they kept the mnemonic.
 - The Secret Key never leaves the device — do not send it to the server.
 - `combinePassphraseAndSecretKey()` is used internally by `wrapKey` / `unwrapKey` / `rekey` / `rekeySecretKey` when `secretKey` is passed. Calling it directly is only needed for advanced use cases.
