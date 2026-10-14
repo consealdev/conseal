@@ -1,0 +1,645 @@
+openapi: 3.1.0
+
+info:
+  title: Conseal Sync Contract
+  version: 0.1.0
+  license:
+    name: MIT
+    identifier: MIT
+  description: |
+    The wire contract of Conseal Sync: how a user's encrypted records move between their devices
+    through a server that can't read them. Any backend that satisfies this contract works with
+    conseal-sync-js, and any client that follows it can read what another client wrote, whatever
+    language either is written in.
+
+    **The server is blind.** It stores opaque records keyed by user, collection and record id,
+    orders them, pages them and enforces optimistic concurrency. It never holds a key, never reads
+    content and never resolves a conflict: merging runs on the client, on plaintext.
+
+    **Auth is the host app's.** Every route needs a signed-in user, and the server takes the user
+    id from the host app's own sign-in. No path or body names a user: every route acts on the
+    caller's own data.
+
+    **Collections are ids, not names.** A collection id is an identifier the app assigns, such as
+    `7f3a9c21`, never the collection's name, so the storage tier, its logs and its metrics never
+    hold the app's vocabulary. The server accepts only the ids it is configured with (see
+    `getConfig`).
+
+    ## The record envelope
+
+    Clients seal every record the same way, so any client can read what another wrote. Binary
+    values travel as standard base64 with padding (RFC 4648 §4).
+
+    - **AEK:** the user's AES-256-GCM account key, shared by their devices through conseal's
+      circle. Content is never sealed under it directly.
+    - **DEK:** a fresh random AES-256-GCM key for every write of a record, never reused.
+    - **Plaintext:** a UTF-8 JSON object whose shape is the app's. It carries the collection's
+      `schemaVersion` as an integer, and a client keeps the fields it doesn't know when it writes
+      the record back.
+    - **AAD:** the UTF-8 bytes of `conseal-sync:v1:<collectionId>:<recordId>`. It binds a
+      ciphertext to its record, so it can't be moved to another record or collection.
+    - **`ciphertext`:** AES-GCM of the plaintext under the DEK, with a random 12-byte `iv` and the
+      AAD, the 16-byte tag appended (what conseal's `seal` returns).
+    - **`wrappedDek`:** a random 12-byte IV, then AES-GCM of the 32 raw DEK bytes under the AEK with
+      the same AAD, the tag appended: 60 bytes.
+
+    Re-sealing after a merge is a new write: a new DEK, a new IV, a new ciphertext. A record id is a
+    random (version 4) UUID in lowercase, minted by the client when the record is created. A
+    time-ordered UUID would tell the server when each record was made.
+
+    ## Order and consistency
+
+    Every write, a tombstone included, gives the record a new `version` and a new `seq`. `seq`
+    rises per user and collection in the order writes commit, and may skip numbers. A pull returns
+    records in ascending `seq`, each in its latest state, and never skips a write: once a page holds
+    a record with `seq` s, every write given a lower `seq` is in that page or an earlier one. So the
+    server assigns `seq` in commit order and pages from a strongly consistent read. A DynamoDB
+    global secondary index is eventually consistent and doesn't give this on its own.
+
+    The client keeps the `cursor` from its last pull and starts the next pull from it. It never
+    builds one from its own clock: the cursor is the server's, signed, and valid only for the user
+    and collection it was issued for.
+
+    ## What a client does with each answer
+
+    | Answer | Means | The client |
+    |---|---|---|
+    | item `200` | written | stores the new `version` |
+    | item `409` | a merge instruction, never a failure | unseals `current`, merges, and pushes again with `current.version` as `baseVersion` (null when `current` is null) |
+    | item `400` or `413` | permanent for this record | stops retrying it; after a `413`, moves the content to a blob or splits the record |
+    | `400` with `invalid_cursor` | the cursor can't be used | drops it and pulls from the start |
+    | `401` | not signed in | goes through the host app's sign-in |
+    | `404` | the collection isn't configured, or has no blobs | stops syncing it: a configuration error, not a transient one |
+    | `413` | the request is too large | sends fewer items |
+    | `429`, `5xx`, or no answer | transient | retries later with backoff, after `Retry-After` when given |
+
+    ## Blobs
+
+    Content too large for a record goes to object storage as a blob, uploaded and downloaded
+    directly through short-lived presigned URLs, so its bytes never pass through the API. The blob
+    plane is optional: `getConfig` says which collections have it.
+
+    A blob is a random 12-byte IV followed by AES-GCM of its bytes under a fresh blob DEK, with the
+    AAD `conseal-sync:v1:<collectionId>:<recordId>:<blobId>`, the tag appended. The blob DEK
+    travels only inside the owning record's sealed plaintext. A client uploads a record's blobs
+    before it pushes the record that refers to them, so no device sees a reference to a blob that
+    isn't there yet. A blob id is a random lowercase UUID, like a record id.
+
+    The threat model, `threat-model.md` beside this file, says what the server still learns and
+    what it can still do.
+
+servers:
+  - url: '{baseUrl}/{prefix}'
+    description: The sync routes, mapped by the backend
+    variables:
+      baseUrl:
+        default: http://localhost
+        description: Base URL of the application
+      prefix:
+        default: sync
+        description: Configurable route prefix
+
+paths:
+
+  /:
+    get:
+      operationId: getConfig
+      summary: Read the collections and limits
+      description: |
+        The collections this server accepts and the limits a client keeps to. A client reads it
+        before its first push and checks its own collection registry against it.
+
+        **`maxRecordBytes` comes from the storage backend.** It is the backend's item limit less the
+        space the rest of a stored record takes, never a separate setting, so a record the server
+        accepts is always one its storage can hold. DynamoDB items are at most 400 KB, which leaves
+        about 285 KB of plaintext once base64 and the other attributes are counted.
+      responses:
+        '200':
+          description: The server's collections and limits
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncConfig'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /{collectionId}:
+    parameters:
+      - $ref: '#/components/parameters/collectionId'
+
+    get:
+      operationId: pullRecords
+      summary: Pull the records written since a cursor
+      description: |
+        Returns the collection's records written after `cursor`, in ascending `seq`, each in its
+        latest state, tombstones included. Without `cursor` it starts from the beginning.
+
+        Pull again while `hasMore` is true. Then store the last `cursor`: the next pull starts
+        from it, whether or not the last page had items. The server may return fewer items than
+        `limit`, to keep the response within its own size limit.
+      parameters:
+        - name: cursor
+          in: query
+          required: false
+          description: The `cursor` from the previous pull, opaque to the client
+          schema:
+            type: string
+            maxLength: 1024
+        - name: limit
+          in: query
+          required: false
+          description: The most items to return, capped at the server's `maxPageItems`
+          schema:
+            type: integer
+            minimum: 1
+            default: 500
+      responses:
+        '200':
+          description: A page of records
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyncPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+    post:
+      operationId: pushRecords
+      summary: Write a batch of records
+      description: |
+        Writes up to `maxBatchItems` records, each with optimistic concurrency: an item is written
+        only if `baseVersion` names the record's version on the server, or is null and the record
+        doesn't exist yet. Items are written independently and answered in order, one result each,
+        so one rejected item doesn't fail the others. Each id appears at most once.
+
+        **A conflict is a merge instruction.** A `409` item carries the server's current record.
+        The client unseals it, merges, and pushes again with the current version.
+
+        **A delete is a tombstone.** An item with `deleted: true` keeps the record's row, drops its
+        ciphertext and sets `deletedAt`, so other devices learn of the delete on their next pull.
+        It also deletes the record's blobs. Writing a record again over its tombstone, by naming
+        the tombstone's version, is how a merge brings back a record deleted on another device.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PushRequest'
+      responses:
+        '200':
+          description: One result per item, in the order sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PushResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '413':
+          $ref: '#/components/responses/RequestTooLarge'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /{collectionId}/{recordId}/blobs/{blobId}:
+    parameters:
+      - $ref: '#/components/parameters/collectionId'
+      - $ref: '#/components/parameters/recordId'
+      - $ref: '#/components/parameters/blobId'
+
+    post:
+      operationId: createBlobUpload
+      summary: Get a URL to upload a blob
+      description: |
+        Returns a presigned URL to upload the sealed blob to, directly. The URL is signed for
+        exactly `size` bytes, so the upload can't be larger than what the server agreed to. The
+        record needn't exist yet, since a record's blobs go up before the record does. Uploading
+        to a blob id that exists replaces the blob.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlobUploadRequest'
+      responses:
+        '200':
+          description: Where and how to upload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlobUrl'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '413':
+          $ref: '#/components/responses/RequestTooLarge'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+    get:
+      operationId: createBlobDownload
+      summary: Get a URL to download a blob
+      description: |
+        Returns a presigned URL to download the sealed blob from, directly. The server doesn't
+        check that the blob exists: a missing one is a `404` from the storage URL.
+      responses:
+        '200':
+          description: Where and how to download
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlobUrl'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+    delete:
+      operationId: deleteBlob
+      summary: Delete a blob
+      description: |
+        Deletes a blob the record no longer refers to. Deleting a blob that isn't there succeeds,
+        so a retry is safe.
+      responses:
+        '204':
+          description: The blob is gone
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+components:
+
+  parameters:
+
+    collectionId:
+      name: collectionId
+      in: path
+      required: true
+      description: The collection's id, as the app assigns it
+      schema:
+        $ref: '#/components/schemas/CollectionId'
+
+    recordId:
+      name: recordId
+      in: path
+      required: true
+      description: The id of the record the blob belongs to
+      schema:
+        $ref: '#/components/schemas/RecordId'
+
+    blobId:
+      name: blobId
+      in: path
+      required: true
+      description: The blob's id
+      schema:
+        $ref: '#/components/schemas/RecordId'
+
+  headers:
+
+    Retry-After:
+      description: Seconds to wait before trying again
+      schema:
+        type: integer
+        minimum: 0
+
+  responses:
+
+    BadRequest:
+      description: |
+        The request is malformed (`invalid_request`), names an id twice (`duplicate_id`), or
+        carries a cursor that isn't valid for this user and collection (`invalid_cursor`)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Unauthenticated:
+      description: No signed-in user (`unauthenticated`); the host app's sign-in decides how to answer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: |
+        The collection isn't one the server accepts (`unknown_collection`), or has no blob plane
+        (`blobs_disabled`)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    RequestTooLarge:
+      description: |
+        More items than `maxBatchItems` (`too_many_items`), a body over the server's limit
+        (`request_too_large`), or a blob over `maxBlobBytes` (`blob_too_large`)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    RateLimited:
+      description: Too many requests from this user (`rate_limited`)
+      headers:
+        Retry-After:
+          $ref: '#/components/headers/Retry-After'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+
+    CollectionId:
+      type: string
+      description: An identifier the app assigns, never the collection's name
+      pattern: '^[A-Za-z0-9_-]{1,64}$'
+      examples:
+        - 7f3a9c21
+
+    RecordId:
+      type: string
+      description: A random (version 4) UUID in lowercase, minted by the client
+      format: uuid
+      pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+      examples:
+        - 3b2f6c1e-8d4a-4f0b-9c7e-5a1d2e3f4b6c
+
+    Version:
+      type: string
+      description: |
+        The server's version of a record, new on every write. Opaque to the client, which sends it
+        back as `baseVersion`.
+      maxLength: 64
+      examples:
+        - 9f1c2b7d4e6a48a1b0c3d5e7f9a1b2c3
+
+    Base64:
+      type: string
+      contentEncoding: base64
+      description: Standard base64 with padding (RFC 4648 §4)
+
+    SyncConfig:
+      type: object
+      required: [collections, maxBatchItems, maxPageItems]
+      properties:
+        collections:
+          type: array
+          description: The collections the server accepts. Any other id answers `404`
+          items:
+            $ref: '#/components/schemas/CollectionLimits'
+        maxBatchItems:
+          type: integer
+          minimum: 1
+          description: The most items one push may carry
+          examples:
+            - 100
+        maxPageItems:
+          type: integer
+          minimum: 1
+          description: The most items one pull returns
+          examples:
+            - 1000
+
+    CollectionLimits:
+      type: object
+      required: [id, maxRecordBytes, maxBlobBytes]
+      properties:
+        id:
+          $ref: '#/components/schemas/CollectionId'
+        maxRecordBytes:
+          type: integer
+          minimum: 1
+          description: The largest decoded `ciphertext` a record may have, in bytes
+          examples:
+            - 291000
+        maxBlobBytes:
+          type: [integer, 'null']
+          minimum: 1
+          description: The largest sealed blob, in bytes; null when the collection has no blobs
+          examples:
+            - 10485760
+
+    SyncRecord:
+      type: object
+      description: |
+        A record as the server holds it. A tombstone has `deletedAt` set and its `ciphertext`,
+        `iv` and `wrappedDek` null.
+      required: [id, ciphertext, iv, wrappedDek, version, seq, deletedAt]
+      properties:
+        id:
+          $ref: '#/components/schemas/RecordId'
+        ciphertext:
+          description: The sealed plaintext, tag appended; null for a tombstone
+          oneOf:
+            - $ref: '#/components/schemas/Base64'
+            - type: 'null'
+        iv:
+          description: The 12-byte IV of `ciphertext`; null for a tombstone
+          oneOf:
+            - $ref: '#/components/schemas/Base64'
+            - type: 'null'
+        wrappedDek:
+          description: The record's DEK sealed under the AEK, 60 bytes; null for a tombstone
+          oneOf:
+            - $ref: '#/components/schemas/Base64'
+            - type: 'null'
+        version:
+          $ref: '#/components/schemas/Version'
+        seq:
+          type: integer
+          format: int64
+          minimum: 1
+          description: The record's place in the collection's order, set by the server
+        deletedAt:
+          type: [string, 'null']
+          format: date-time
+          description: When the server tombstoned the record, by its own clock; null when live
+
+    SyncPage:
+      type: object
+      required: [items, cursor, hasMore]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SyncRecord'
+        cursor:
+          type: string
+          maxLength: 1024
+          description: Where the next pull starts. Signed by the server; opaque to the client
+        hasMore:
+          type: boolean
+          description: True when more records are waiting; pull again with `cursor`
+
+    PushRequest:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/PushItem'
+
+    PushItem:
+      oneOf:
+        - $ref: '#/components/schemas/RecordWrite'
+        - $ref: '#/components/schemas/RecordDelete'
+
+    RecordWrite:
+      type: object
+      title: Write
+      description: Creates a record, or replaces the version named by `baseVersion`
+      required: [id, baseVersion, deleted, ciphertext, iv, wrappedDek]
+      properties:
+        id:
+          $ref: '#/components/schemas/RecordId'
+        baseVersion:
+          description: The server version this write replaces; null to create the record
+          oneOf:
+            - $ref: '#/components/schemas/Version'
+            - type: 'null'
+        ciphertext:
+          description: The sealed plaintext, tag appended; at most `maxRecordBytes` once decoded
+          allOf:
+            - $ref: '#/components/schemas/Base64'
+        iv:
+          description: The 12-byte IV of `ciphertext`
+          allOf:
+            - $ref: '#/components/schemas/Base64'
+        wrappedDek:
+          description: The record's DEK sealed under the AEK, 60 bytes
+          allOf:
+            - $ref: '#/components/schemas/Base64'
+        deleted:
+          const: false
+
+    RecordDelete:
+      type: object
+      title: Delete
+      description: Tombstones the version named by `baseVersion`
+      required: [id, baseVersion, deleted]
+      properties:
+        id:
+          $ref: '#/components/schemas/RecordId'
+        baseVersion:
+          $ref: '#/components/schemas/Version'
+        deleted:
+          const: true
+
+    PushResponse:
+      type: object
+      required: [results]
+      properties:
+        results:
+          type: array
+          description: One per item, in the order the items were sent
+          items:
+            $ref: '#/components/schemas/PushResult'
+
+    PushResult:
+      type: object
+      description: |
+        The outcome of one item. `200` carries `version` and `seq`, `409` carries `current`, and
+        `400` and `413` carry `error`.
+      required: [id, status]
+      properties:
+        id:
+          $ref: '#/components/schemas/RecordId'
+        status:
+          type: integer
+          enum: [200, 400, 409, 413]
+          description: |
+            `200` written; `409` the version didn't match, merge with `current`; `400` the item
+            is invalid (`invalid_record`); `413` its ciphertext is over `maxRecordBytes`
+            (`record_too_large`)
+        version:
+          $ref: '#/components/schemas/Version'
+        seq:
+          type: integer
+          format: int64
+          minimum: 1
+        current:
+          description: The server's record on a `409`; null when the server has none
+          oneOf:
+            - $ref: '#/components/schemas/SyncRecord'
+            - type: 'null'
+        error:
+          $ref: '#/components/schemas/Error'
+
+    BlobUploadRequest:
+      type: object
+      required: [size]
+      properties:
+        size:
+          type: integer
+          minimum: 28
+          description: The sealed blob's length in bytes, IV and tag included
+
+    BlobUrl:
+      type: object
+      required: [url, method, headers, expiresAt]
+      properties:
+        url:
+          type: string
+          format: uri
+          description: The presigned storage URL
+        method:
+          type: string
+          enum: [PUT, GET]
+        headers:
+          type: object
+          description: Headers to send with the request, exactly as given
+          additionalProperties:
+            type: string
+        expiresAt:
+          type: string
+          format: date-time
+          description: When the URL stops working
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum:
+            - invalid_request
+            - invalid_cursor
+            - duplicate_id
+            - unauthenticated
+            - unknown_collection
+            - blobs_disabled
+            - too_many_items
+            - request_too_large
+            - blob_too_large
+            - invalid_record
+            - record_too_large
+            - rate_limited
+        message:
+          type: string
+          description: What went wrong, for a developer; clients act on `code`
