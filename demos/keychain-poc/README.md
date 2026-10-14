@@ -119,7 +119,7 @@ What it does:
 
 Output:
 ```
-[service] verification code: A3-4F-9C-12   ← note this
+[service] verification code: 7KQ2-M9XD-4RTF-B8NW   ← note this
 [service] join request posted to relay
 [service] state saved to service-state.json
 ```
@@ -139,7 +139,7 @@ What it does:
 
 Output:
 ```
-[human] verification code: A3-4F-9C-12   ← must match step 2
+[human] verification code: 7KQ2-M9XD-4RTF-B8NW   ← must match step 2
 [human] AEK sealed for service
 [human] sealed AEK posted to relay
 ```

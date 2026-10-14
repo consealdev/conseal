@@ -654,7 +654,7 @@
                 <tr><td class="fn">createJoinRequest(deviceMeta?)</td><td class="desc">New device generates an ephemeral ECDH key pair. Returns the join request payload, the ephemeral private key (hold in memory only), and a <code>verificationCode</code> to display prominently.</td></tr>
                 <tr><td class="fn">authorizeJoin(joinRequest, wrappedAEK, passphrase, secretKey, serverReceivedAt)</td><td class="desc">Trusted device unwraps its AEK and seals it for the new device via ECDH. <code>serverReceivedAt</code> is when the server received the request, in Unix ms; requests older than 5 minutes are rejected.</td></tr>
                 <tr><td class="fn">finalizeJoin(sealedAEK, ephemeralPrivateKey, passphrase, secretKey, aekCommitment)</td><td class="desc">New device unseals the AEK, verifies it against <code>aekCommitment</code>, and re-wraps it under its own credentials. Throws on commitment mismatch.</td></tr>
-                <tr><td class="fn">deriveVerificationCode(ephemeralPublicKey)</td><td class="desc">Derives a <code>XX-XX-XX-XX</code> hex verification code from a public key. Both devices must display matching codes before approval to prevent MITM.</td></tr>
+                <tr><td class="fn">deriveVerificationCode(ephemeralPublicKey)</td><td class="desc">Derives an 80-bit verification code from a public key, as 16 base32 characters: <code>7KQ2-M9XD-4RTF-B8NW</code>. Both devices must display matching codes before approval to prevent MITM.</td></tr>
               </tbody>
             </table>
           </div>
