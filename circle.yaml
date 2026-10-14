@@ -1,0 +1,694 @@
+openapi: 3.1.0
+
+info:
+  title: Conseal Sync Circle Contract
+  version: 0.1.0
+  license:
+    name: MIT
+    identifier: MIT
+  description: |
+    The routes a backend serves for conseal's circle: the devices that share a user's account key
+    (AEK), and the join ceremony that brings a new device in. They are the server side of
+    conseal-sync-js's `CircleTransport`, one route per method.
+
+    **The server holds no keys.** It stores what devices hand it, and gives it back: each device's
+    wrapped AEK, the account's AEK commitment, join requests, and the AEK sealed to a joining device.
+    It never unwraps, unseals or checks any of them beyond their shape and size, and returns each
+    object exactly as it received it, fields it doesn't know included.
+
+    **Auth is the host app's**, as for the sync routes in `openapi.yaml`: every route needs a
+    signed-in user and acts on that user's own circle. No path or body names a user.
+
+    ## The ceremony
+
+    1. The first device creates the circle (`createCircle`): the AEK commitment and its own wrapped
+       AEK.
+    2. A new device posts a join request (`createJoin`) carrying a throwaway public key, shows a
+       verification code derived from that key, and polls the request (`getJoin`).
+    3. A trusted device lists the waiting requests (`listJoins`) and shows the same code. Once the
+       user has confirmed the two codes match, it seals the AEK to the request's key and authorizes
+       (`authorizeJoin`), or denies (`denyJoin`).
+    4. The new device reads the sealed AEK, wraps it under its own passphrase and Secret Key, and
+       saves it naming the request (`saveWrappedAek`). That consumes the request.
+
+    A device that recovers the circle from its mnemonic saves its wrapped AEK without naming a
+    request: the client checks the recovered key against the commitment first.
+
+    ## What the server enforces
+
+    - **The commitment is written once.** A server that lets it change lets a substituted key pass
+      a new device's check.
+    - **A join request is short-lived and used once.** It expires five minutes after the server
+      receives it, by the server's clock, never the request's own `createdAt`. Authorizing it
+      starts a fresh five minutes for the new device to finish. It can be authorized or denied
+      once, and the save that names it consumes it, after which the server deletes it with the
+      sealed AEK it held.
+    - **One waiting request per device.** A new request from the same `deviceId` replaces the
+      waiting one.
+    - **A revoked device stays out.** Revoking deletes its wrapped AEK, and every route that names
+      it answers `403 device_revoked`. The server should tell the user when a revoked device
+      tries.
+    - **The last device can't be revoked**, so a user can't lock themselves out of their circle.
+    - **Sizes are capped.** Each sealed or wrapped object is at most 8 KB of JSON, a device name 256
+      characters and a platform 64.
+
+    The errors share one body, `{ code, message }`, and a client acts on `code`. The threat model,
+    `threat-model.md` beside this file, covers the circle routes in a section of their own.
+
+servers:
+  - url: '{baseUrl}/{prefix}'
+    description: The circle routes, mapped by the backend
+    variables:
+      baseUrl:
+        default: http://localhost
+        description: Base URL of the application
+      prefix:
+        default: circle
+        description: Configurable route prefix
+
+paths:
+
+  /:
+    get:
+      operationId: getCircle
+      summary: Read the account's AEK commitment
+      description: |
+        The commitment a device checks a recovered or joined AEK against. `404 no_circle` when the
+        account has no circle yet, so the client offers setup.
+      responses:
+        '200':
+          description: The account's circle
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Circle'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+    post:
+      operationId: createCircle
+      summary: Create the circle with its first device
+      description: |
+        Stores the AEK commitment, once, and registers the founding device with its wrapped AEK.
+        Both happen or neither does.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewCircle'
+      responses:
+        '204':
+          description: The circle exists, with this device in it
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /devices:
+    get:
+      operationId: listDevices
+      summary: List the circle's devices
+      description: The devices in the circle, revoked ones left out.
+      responses:
+        '200':
+          description: The circle's devices
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceList'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /devices/{deviceId}:
+    parameters:
+      - $ref: '#/components/parameters/deviceId'
+
+    delete:
+      operationId: revokeDevice
+      summary: Revoke a device
+      description: |
+        Deletes the device's wrapped AEK and keeps it out from then on. Revoking a device that is
+        already revoked succeeds, so a retry is safe. The device keeps the AEK it already holds:
+        revoking stops it syncing, it doesn't take the key back.
+      responses:
+        '204':
+          description: The device is revoked
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /devices/{deviceId}/wrapped-aek:
+    parameters:
+      - $ref: '#/components/parameters/deviceId'
+
+    get:
+      operationId: getWrappedAek
+      summary: Read a device's wrapped AEK
+      description: |
+        The wrapped AEK the device saved, as it saved it. A device that isn't in the circle answers
+        `404 unknown_device`, and a revoked one `403 device_revoked`: either way it has to join or
+        recover.
+      responses:
+        '200':
+          description: The device's wrapped AEK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WrappedAekBody'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+    put:
+      operationId: saveWrappedAek
+      summary: Save a device's wrapped AEK
+      description: |
+        Saves the device's wrapped AEK, adding the device to the circle when it isn't there yet.
+
+        - **With `challengeId`**, the device is finishing a join: the request must be authorized
+          for this `deviceId` and not expired, and the save consumes it.
+        - **Without it**, the device recovered the AEK from the mnemonic, or is re-wrapping its own
+          after a passphrase change. The server can't check either: a device that saves a wrapped
+          AEK it can't open gains nothing, and the server should tell the user when a device joins
+          this way.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveWrappedAek'
+      responses:
+        '204':
+          description: Saved
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '410':
+          $ref: '#/components/responses/Gone'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /joins:
+    get:
+      operationId: listJoins
+      summary: List the join requests waiting for approval
+      description: The account's join requests that are still pending and not expired, oldest first.
+      responses:
+        '200':
+          description: The waiting join requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JoinList'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+    post:
+      operationId: createJoin
+      summary: Ask to join the circle
+      description: |
+        Posts a new device's join request. Returns the request's id, and the account's commitment
+        for the new device to check the AEK against once it arrives.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JoinRequest'
+      responses:
+        '201':
+          description: The request is waiting for approval
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JoinCreated'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /joins/{challengeId}:
+    parameters:
+      - $ref: '#/components/parameters/challengeId'
+
+    get:
+      operationId: getJoin
+      summary: Read where a join request stands
+      description: |
+        The new device polls this until the request leaves `pending`. Once it is authorized, the
+        answer carries the AEK and the approver's passphrase check, both sealed to the request's
+        public key.
+      responses:
+        '200':
+          description: The request's status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JoinStatus'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /joins/{challengeId}/authorize:
+    parameters:
+      - $ref: '#/components/parameters/challengeId'
+
+    post:
+      operationId: authorizeJoin
+      summary: Approve a join request
+      description: |
+        A trusted device hands the new device the AEK and a check of its own passphrase, each
+        sealed to the request's public key. It calls this only after the user has confirmed the
+        verification codes match.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthorizeJoin'
+      responses:
+        '204':
+          description: The request is authorized
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '410':
+          $ref: '#/components/responses/Gone'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /joins/{challengeId}/deny:
+    parameters:
+      - $ref: '#/components/parameters/challengeId'
+
+    post:
+      operationId: denyJoin
+      summary: Refuse a join request
+      responses:
+        '204':
+          description: The request is denied
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+components:
+
+  parameters:
+
+    deviceId:
+      name: deviceId
+      in: path
+      required: true
+      description: The device's id
+      schema:
+        $ref: '#/components/schemas/DeviceId'
+
+    challengeId:
+      name: challengeId
+      in: path
+      required: true
+      description: The join request's id, as `createJoin` returned it
+      schema:
+        $ref: '#/components/schemas/ChallengeId'
+
+  headers:
+
+    Retry-After:
+      description: Seconds to wait before trying again
+      schema:
+        type: integer
+        minimum: 0
+
+  responses:
+
+    BadRequest:
+      description: A malformed path or body, or a value over its size cap (`invalid_request`)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Unauthenticated:
+      description: No signed-in user (`unauthenticated`); the host app's sign-in decides how to answer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Forbidden:
+      description: |
+        The device is revoked (`device_revoked`), or the join request isn't for this device
+        (`join_mismatch`)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: |
+        The account has no circle (`no_circle`), the device isn't in it (`unknown_device`), or no
+        such join request exists (`unknown_join`)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Conflict:
+      description: |
+        The account already has a circle (`circle_exists`), the device is already in it
+        (`device_registered`), it is the last device (`last_device`), or the join request has
+        already been decided (`join_not_pending`) or isn't authorized (`join_not_authorized`)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Gone:
+      description: The join request expired (`join_expired`)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    RateLimited:
+      description: Too many requests from this user (`rate_limited`)
+      headers:
+        Retry-After:
+          $ref: '#/components/headers/Retry-After'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+
+    DeviceId:
+      type: string
+      description: A random (version 4) UUID in lowercase, minted by the device
+      format: uuid
+      pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+      examples:
+        - 6f1d2c3b-4a5e-4f60-8b7c-9d0e1f2a3b4c
+
+    ChallengeId:
+      type: string
+      description: A join request's id, 128 random bits in lowercase hex, set by the server
+      pattern: '^[0-9a-f]{32}$'
+      examples:
+        - 4c8e1a2b3d5f47a69b0c1d2e3f4a5b6c
+
+    Base64:
+      type: string
+      contentEncoding: base64
+      description: Standard base64 with padding (RFC 4648 §4)
+
+    PublicJwk:
+      type: object
+      description: |
+        An EC P-256 public key as a JSON Web Key. It must not carry the private part `d`.
+      required: [kty, crv, x, y]
+      properties:
+        kty:
+          const: EC
+        crv:
+          const: P-256
+        x:
+          type: string
+        y:
+          type: string
+      additionalProperties: true
+
+    DeviceMeta:
+      type: object
+      description: What a device says about itself in the device list
+      properties:
+        name:
+          type: string
+          maxLength: 256
+        platform:
+          type: string
+          maxLength: 64
+
+    WrappedAek:
+      type: object
+      description: |
+        The AEK wrapped under one device's passphrase and Secret Key, as conseal's `wrapKey`
+        returns it. Opaque to the server.
+      required: [wrappedKey, salt]
+      properties:
+        wrappedKey:
+          $ref: '#/components/schemas/Base64'
+        salt:
+          $ref: '#/components/schemas/Base64'
+      additionalProperties: true
+
+    Sealed:
+      type: object
+      description: |
+        A payload sealed to an ECDH public key, as conseal's `sealMessage` returns it. Opaque to
+        the server.
+      required: [ciphertext, iv, ephemeralPublicKey]
+      properties:
+        ciphertext:
+          $ref: '#/components/schemas/Base64'
+        iv:
+          $ref: '#/components/schemas/Base64'
+        ephemeralPublicKey:
+          $ref: '#/components/schemas/PublicJwk'
+      additionalProperties: true
+
+    Circle:
+      type: object
+      required: [aekCommitment]
+      properties:
+        aekCommitment:
+          description: SHA-256 of the raw AEK, 32 bytes
+          allOf:
+            - $ref: '#/components/schemas/Base64'
+
+    NewCircle:
+      type: object
+      required: [deviceId, aekCommitment, wrappedAek]
+      properties:
+        deviceId:
+          $ref: '#/components/schemas/DeviceId'
+        aekCommitment:
+          description: SHA-256 of the raw AEK, 32 bytes; written once
+          allOf:
+            - $ref: '#/components/schemas/Base64'
+        wrappedAek:
+          $ref: '#/components/schemas/WrappedAek'
+        deviceMeta:
+          $ref: '#/components/schemas/DeviceMeta'
+
+    Device:
+      type: object
+      required: [deviceId, registeredAt]
+      properties:
+        deviceId:
+          $ref: '#/components/schemas/DeviceId'
+        name:
+          type: string
+          maxLength: 256
+        platform:
+          type: string
+          maxLength: 64
+        registeredAt:
+          type: string
+          format: date-time
+          description: When the server added the device, by its own clock
+
+    DeviceList:
+      type: object
+      required: [devices]
+      properties:
+        devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/Device'
+
+    WrappedAekBody:
+      type: object
+      required: [wrappedAek]
+      properties:
+        wrappedAek:
+          $ref: '#/components/schemas/WrappedAek'
+
+    SaveWrappedAek:
+      type: object
+      required: [wrappedAek]
+      properties:
+        wrappedAek:
+          $ref: '#/components/schemas/WrappedAek'
+        deviceMeta:
+          $ref: '#/components/schemas/DeviceMeta'
+        challengeId:
+          description: The join request this save completes; absent after a recovery or a re-wrap
+          allOf:
+            - $ref: '#/components/schemas/ChallengeId'
+
+    JoinRequest:
+      type: object
+      description: |
+        A new device's join request, as conseal's `createJoinRequest` returns it. The server keeps
+        it as it arrived and returns it in `listJoins`.
+      required: [deviceId, ephemeralPublicKey, createdAt]
+      properties:
+        deviceId:
+          $ref: '#/components/schemas/DeviceId'
+        ephemeralPublicKey:
+          $ref: '#/components/schemas/PublicJwk'
+        createdAt:
+          type: string
+          format: date-time
+          description: The device's own clock; the server's receipt time is what counts
+        deviceMeta:
+          $ref: '#/components/schemas/DeviceMeta'
+      additionalProperties: true
+
+    JoinCreated:
+      type: object
+      required: [challengeId, aekCommitment, expiresAt]
+      properties:
+        challengeId:
+          $ref: '#/components/schemas/ChallengeId'
+        aekCommitment:
+          description: The account's commitment, for the new device to check the AEK against
+          allOf:
+            - $ref: '#/components/schemas/Base64'
+        expiresAt:
+          type: string
+          format: date-time
+
+    PendingJoin:
+      type: object
+      required: [challengeId, request, receivedAt, expiresAt]
+      properties:
+        challengeId:
+          $ref: '#/components/schemas/ChallengeId'
+        request:
+          $ref: '#/components/schemas/JoinRequest'
+        receivedAt:
+          type: string
+          format: date-time
+          description: When the server received the request, by its own clock
+        expiresAt:
+          type: string
+          format: date-time
+
+    JoinList:
+      type: object
+      required: [joins]
+      properties:
+        joins:
+          type: array
+          items:
+            $ref: '#/components/schemas/PendingJoin'
+
+    JoinStatus:
+      type: object
+      description: |
+        `pending`, `expired` and `denied` carry nothing else. `authorized` carries the AEK and the
+        approver's passphrase check, each sealed to the request's public key.
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [pending, authorized, expired, denied]
+        sealedAek:
+          $ref: '#/components/schemas/Sealed'
+        passphraseCheck:
+          $ref: '#/components/schemas/Sealed'
+
+    AuthorizeJoin:
+      type: object
+      required: [sealedAek, passphraseCheck]
+      properties:
+        sealedAek:
+          $ref: '#/components/schemas/Sealed'
+        passphraseCheck:
+          $ref: '#/components/schemas/Sealed'
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum:
+            - invalid_request
+            - unauthenticated
+            - no_circle
+            - circle_exists
+            - unknown_device
+            - device_registered
+            - device_revoked
+            - last_device
+            - unknown_join
+            - join_not_pending
+            - join_not_authorized
+            - join_mismatch
+            - join_expired
+            - rate_limited
+        message:
+          type: string
+          description: What went wrong, for a developer; clients act on `code`
