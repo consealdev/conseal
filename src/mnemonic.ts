@@ -37,7 +37,7 @@ export function generateMnemonic(): string {
  * if the same entropy is ever used for another purpose.
  *
  * Pass extractable: true when the key must be wrapped before storage —
- * e.g. when passing it to initCircle().
+ * e.g. to re-wrap it under a new passphrase with wrapKey().
  */
 export async function recoverWithMnemonic(mnemonic: string, extractable = false): Promise<CryptoKey> {
   if (!validateMnemonic(mnemonic, wordlist)) {

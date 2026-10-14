@@ -10,7 +10,7 @@
  *
  * Four exported functions cover the full device-registration ceremony:
  *
- *   initCircle()        — founding device generates the shared AEK
+ *   initCircle()        — founding device derives the shared AEK from the mnemonic
  *   createJoinRequest() — new device generates an ephemeral ECDH key pair
  *   authorizeJoin()     — trusted device seals the AEK for the new device
  *   finalizeJoin()      — new device unseals and re-wraps the AEK
@@ -48,11 +48,9 @@ export interface JoinRequest {
   deviceId: string
   ephemeralPublicKey: JsonWebKey
   /**
-   * ISO 8601 timestamp set by the joining device. `authorizeJoin` uses this to
-   * reject stale requests, but the check is only as trustworthy as the device
-   * that set the value. Callers should independently validate request freshness
-   * server-side (e.g. record when the backend first received the request and
-   * reject if that server-stamped age exceeds the TTL).
+   * ISO 8601 timestamp set by the joining device, for display only. The device
+   * can forge it, so `authorizeJoin` doesn't read it: it checks freshness
+   * against `serverReceivedAt`, the time the backend first received the request.
    */
   createdAt: string
   deviceMeta?: { name?: string; platform?: string }
