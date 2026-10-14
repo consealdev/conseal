@@ -44,13 +44,21 @@ const result = await unseal(key, ciphertext, iv)
 | `generateAesKey(extractable?)` | Generates a random AES-256 key. |
 | `importAesKey(raw, extractable?)` | Imports raw key bytes as a CryptoKey. |
 
-### Passphrase key wrapping (PBKDF2 + AES-KW)
+### Passphrase key wrapping (PBKDF2 + AES-GCM)
 
 | Function | Description |
 |---|---|
-| `wrapKey(passphrase, key)` | Wraps a CryptoKey with a passphrase. Returns `{ wrappedKey, salt }`. |
-| `unwrapKey(passphrase, wrappedKey, salt)` | Unwraps. Throws on wrong passphrase. |
-| `rekey(oldPass, newPass, wrappedKey, salt)` | Changes passphrase without re-encrypting data. |
+| `wrapKey(passphrase, key, secretKey?)` | Wraps an extractable CryptoKey with a passphrase, and the Secret Key if given. Returns `{ wrappedKey, salt }`; `wrappedKey` is the 12-byte IV followed by the AES-GCM ciphertext. |
+| `unwrapKey(passphrase, wrappedKey, salt, secretKey?, extractable?)` | Unwraps. Throws on a wrong passphrase or Secret Key. |
+| `rekey(oldPass, newPass, wrappedKey, salt, secretKey?)` | Changes passphrase without re-encrypting data. |
+| `rekeySecretKey(passphrase, oldSecretKey, newSecretKey, wrappedKey, salt)` | Rotates a compromised Secret Key, keeping the passphrase. |
+
+### Secret Key
+
+| Function | Description |
+|---|---|
+| `generateSecretKey()` | Generates a random 128-bit Secret Key, a second factor for key wrapping. Store it on the device and keep an offline copy. |
+| `combinePassphraseAndSecretKey(passphrase, secretKey)` | HMAC-SHA-256 of the passphrase, keyed by the Secret Key, as the PBKDF2 input. The wrapping functions call it when given a `secretKey`. |
 
 ### Asymmetric encryption (ECDH P-256)
 
@@ -103,9 +111,9 @@ Four functions cover the full device-registration ceremony:
 |---|---|
 | `initCircle(mnemonic, passphrase, secretKey)` | Founding device derives the shared AEK from the mnemonic, wraps it, and returns `wrappedAEK`, `aekCommitment`, and `deviceId`. |
 | `createJoinRequest(deviceMeta?)` | New device generates an ephemeral ECDH key pair. Returns the join request payload, the ephemeral private key (memory-only), and a `verificationCode` to display to the user. |
-| `authorizeJoin(joinRequest, wrappedAEK, passphrase, secretKey)` | Trusted device unwraps its AEK and seals it for the new device via ECDH. Rejects requests older than 5 minutes. |
+| `authorizeJoin(joinRequest, wrappedAEK, passphrase, secretKey, serverReceivedAt)` | Trusted device unwraps its AEK and seals it for the new device via ECDH. `serverReceivedAt` is when the server received the request, in Unix ms; requests older than 5 minutes are rejected. |
 | `finalizeJoin(sealedAEK, ephemeralPrivateKey, passphrase, secretKey, aekCommitment)` | New device unseals the AEK, verifies the commitment, and re-wraps it under its own credentials. Throws on commitment mismatch. |
-| `deriveVerificationCode(ephemeralPublicKey)` | Derives a `XX-XX-XX` hex code from a public key. Both devices must show matching codes before approval to prevent MITM. |
+| `deriveVerificationCode(ephemeralPublicKey)` | Derives a `XX-XX-XX-XX` hex code from a public key. Both devices must show matching codes before approval to prevent MITM. |
 
 ### Shared encrypted spaces (Channel)
 
@@ -124,7 +132,7 @@ A channel has its own random key, the channel AEK. Each member holds it wrapped 
 
 | Function | Description |
 |---|---|
-| `init(wrappedKey, salt, passphrase)` | Unwraps the AEK and stores it in IndexedDB. |
+| `init(wrappedKey, salt, passphrase, secretKey?)` | Unwraps the AEK and stores it in IndexedDB under `AEK_KEY_ID`. Load it with `loadCryptoKey(AEK_KEY_ID)`. |
 | `AEK_KEY_ID` | The IndexedDB key id for the AEK (`'aek'`). |
 
 ### Mnemonic recovery (BIP-39)
@@ -132,7 +140,7 @@ A channel has its own random key, the channel AEK. Each member holds it wrapped 
 | Function | Description |
 |---|---|
 | `generateMnemonic()` | Generates a 24-word recovery phrase (256 bits of entropy). |
-| `recoverWithMnemonic(mnemonic, extractable?)` | Derives the AEK from the mnemonic. Pass `extractable: true` when passing to `initCircle` or `wrapKey`. |
+| `recoverWithMnemonic(mnemonic, extractable?)` | Derives the AEK from the mnemonic (HKDF-SHA-256). Pass `extractable: true` to wrap it with `wrapKey`. |
 
 ### Key serialisation (JWK)
 
@@ -164,7 +172,7 @@ import { saveCryptoKey, loadCryptoKey, deleteCryptoKey } from '@consealdev/conse
 ## Design
 
 - **Zero runtime secrets on the server.** All encryption and decryption happens in the browser. The server stores only wrapped keys and ciphertext.
-- **SubtleCrypto everywhere.** No OpenSSL, no polyfills, no WASM. The only runtime dependency is [`@scure/bip39`](https://github.com/nicolo-ribaudo/noble-bip39) for mnemonic wordlists (bundled into the output).
+- **SubtleCrypto everywhere.** No OpenSSL, no polyfills, no WASM. No runtime dependencies: [`@scure/bip39`](https://github.com/paulmillr/scure-bip39), for mnemonics and their wordlist, is bundled into the output.
 - **Non-extractable keys.** Keys stored in IndexedDB have `extractable: false` — JavaScript cannot read the raw bytes, only use them for encrypt/decrypt.
 - **PBKDF2 at 600,000 iterations.** Passphrase-derived keys use SHA-256 with a 128-bit random salt per wrap. Intentionally slow to resist offline brute-force.
 
@@ -177,7 +185,7 @@ import { saveCryptoKey, loadCryptoKey, deleteCryptoKey } from '@consealdev/conse
 
 ```bash
 npm install
-npm test           # unit tests (Vitest + happy-dom)
+npm test           # unit tests (Vitest in Node, with fake-indexeddb)
 npm run build      # build to dist/
 ```
 
