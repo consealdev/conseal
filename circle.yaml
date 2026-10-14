@@ -648,7 +648,8 @@ components:
       type: object
       description: |
         `pending`, `expired` and `denied` carry nothing else. `authorized` carries the AEK and the
-        approver's passphrase check, each sealed to the request's public key.
+        approver's passphrase check, each sealed to the request's public key. A client takes the AEK
+        only with a check that vouches for it, so `authorized` always carries both.
       required: [status]
       properties:
         status:

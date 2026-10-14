@@ -102,13 +102,19 @@ ceremony's cryptography; this section covers what the server holds and what the 
 - **What it holds.** Each device's wrapped AEK, the AEK commitment, device names and platforms, and while a join waits,
   the new device's public key, then the AEK and a passphrase check sealed to that key. None of it opens without what
   stays on the devices: a passphrase and a Secret Key, or the new device's private key. The passphrase check is a
-  salted PBKDF2 hash and travels sealed, so the server holds nothing to guess a passphrase against.
+  salted PBKDF2 hash, with a digest of the sealed AEK it vouches for, and travels sealed, so the server holds
+  nothing to guess a passphrase against.
 - **What it sees.** When devices join and are revoked, how many there are, and what their users call them.
 - **A substituted key.** A dishonest server can replace a join request's public key with its own, to receive the AEK
   sealed to it. The verification code stops this: it is derived from the key, so the two devices show different codes,
   and the approving device seals nothing until the user has confirmed they match.
-- **A substituted commitment.** A server that changes the commitment can make a key of its choosing pass a new device's
-  check, so the commitment is written once. A server that lies about it from the start isn't stopped by this contract.
+- **An approval the server makes up.** The request's public key passes through the server, so it can seal a key of
+  its own to it, tell the new device that key's commitment, and answer the join itself. The client takes the AEK only
+  with the approving device's passphrase check, which a server without the passphrase can't make, and which vouches
+  for one sealed AEK, so the server can't move a real check onto its own key either. What is left is a guess at the
+  passphrase, one per join the user starts. This is why `authorized` always carries the check.
+- **A substituted commitment.** The commitment is written once. A server that changes it, or lies about it from the
+  start, can make joins fail; the passphrase check, not the commitment, decides which key a new device takes.
 - **A replayed join.** A join request is used once and expires by the server's clock, so an old approval can't complete
   a later join.
 - **A device added without the ceremony.** A save with no join request is how recovery works, and the server can't tell
