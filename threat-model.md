@@ -33,6 +33,8 @@ Conseal is a browser-side cryptography library built entirely on the [Web Crypto
 | **Ciphertext** | AES-256-GCM encrypted application data | Server / cloud storage |
 | **ECDH / ECDSA key pairs** | Per-user asymmetric keys for messaging and signing | Server (public key) / IndexedDB (private key) |
 | **BIP-39 mnemonic** | 24-word phrase derived from AEK for offline backup | User's written record only |
+| **Channel AEK** | AES-256-GCM key shared by a channel's members, across users | Members' devices, as a non-extractable `CryptoKey` |
+| **Wrapped channel AEK** | Channel AEK under one member's circle AEK (AES-GCM, bound to the channel id) | Server, one per member |
 
 ---
 
@@ -212,6 +214,34 @@ The following are **deliberately outside conseal's scope**:
 
 ---
 
-## 8. Reporting Security Issues
+## 8. Channels
+
+A channel is a shared encrypted space across users: its members read and write with one random channel AEK. Each member holds it wrapped under their own circle AEK, so every device in their circle opens it. An invite runs the circle's join ceremony between two users.
+
+### What the server holds
+
+Per channel, the AEK commitment (SHA-256 of the channel AEK) and one wrapped copy per member. Per pending invite, the invitee's ephemeral public key and, once a member authorizes it, the channel AEK sealed to that key. None of it opens without a member's circle AEK or the invitee's ephemeral private key.
+
+### What conseal enforces
+
+- **Copies bound to their channel.** A wrapped copy carries the channel id in its AAD. The server can't serve one channel's copy as another's, or pass any other key the circle AEK wraps off as a channel AEK.
+- **The commitment, at the invite.** The invitee checks the key it receives against the commitment it took before making its request. A mismatch throws, and nothing is stored.
+- **A code that covers the commitment.** The invite's verification code is derived from the channel id, the commitment and the invitee's ephemeral public key, and the member's side computes the commitment from the key it holds. The request's public key is public, so a server that relays it can seal a key of its own to it and give the invitee a commitment to match; the two codes then differ. A swapped public key changes the member's code.
+- **Fresh requests.** `authorizeChannelJoin` refuses a request the server received more than 5 minutes earlier.
+
+### What it relies on
+
+- **The code comparison, on both sides.** The member confirms the codes match before authorizing, the invitee before finalizing. Without the member's confirmation, the channel AEK can go to a key the server holds; without the invitee's, the invitee can accept a key the server chose.
+- **The server's receipt time,** passed as `serverReceivedAt`, never a time the invitee supplied.
+- **The backend, for membership.** Removing a member is access control: the server stops serving them the channel. They keep the channel AEK and everything they received while a member. A fresh key means a new channel and new invites.
+- **Each member's circle.** A copy is as safe as the circle AEK it is wrapped under: whoever can use a member's circle AEK opens every channel the member is in.
+
+### What the server still learns
+
+Who is in which channel, when invites happen, and the size and timing of what members write. Channels hide content, not membership (§7, Anonymity).
+
+---
+
+## 9. Reporting Security Issues
 
 Please follow the [responsible disclosure process](../SECURITY.md) rather than opening a public issue. Encryption bugs are treated with the highest priority.

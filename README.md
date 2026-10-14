@@ -107,6 +107,19 @@ Four functions cover the full device-registration ceremony:
 | `finalizeJoin(sealedAEK, ephemeralPrivateKey, passphrase, secretKey, aekCommitment)` | New device unseals the AEK, verifies the commitment, and re-wraps it under its own credentials. Throws on commitment mismatch. |
 | `deriveVerificationCode(ephemeralPublicKey)` | Derives a `XX-XX-XX` hex code from a public key. Both devices must show matching codes before approval to prevent MITM. |
 
+### Shared encrypted spaces (Channel)
+
+A channel has its own random key, the channel AEK. Each member holds it wrapped under their circle AEK, so every device in a member's circle opens it, including devices that join the circle later. An invite runs the circle's join ceremony between two users, with a verification code that also covers the channel id and its AEK commitment. See [docs/usage/channel.md](docs/usage/channel.md).
+
+| Function | Description |
+|---|---|
+| `createChannel(circleAEK)` | Generates the channel AEK and wraps it under the creator's circle AEK. Returns `channelId`, `channelAEK`, `wrappedChannelAEK` and `aekCommitment`. |
+| `unwrapChannelAEK(channelId, wrappedChannelAEK, circleAEK)` | Opens a member's copy on any of their devices. Throws if it was wrapped for another channel or under another circle AEK. |
+| `createChannelJoinRequest(channelId, aekCommitment)` | Invitee generates an ephemeral ECDH key pair, after taking the channel's commitment. Returns the request, the ephemeral private key (memory-only), and a `verificationCode` to display. |
+| `deriveChannelVerificationCode(joinRequest, wrappedChannelAEK, circleAEK)` | Member derives the code for a request, from the channel AEK they hold. Both users must confirm the codes match. |
+| `authorizeChannelJoin(joinRequest, wrappedChannelAEK, circleAEK, serverReceivedAt)` | Member seals the channel AEK for the invitee via ECDH. Rejects requests older than 5 minutes. |
+| `finalizeChannelJoin(sealedAEK, ephemeralPrivateKey, circleAEK, channelId, aekCommitment)` | Invitee unseals the channel AEK, verifies the commitment, and wraps it under their circle AEK. Throws on commitment mismatch. |
+
 ### Device initialisation
 
 | Function | Description |

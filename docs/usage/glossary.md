@@ -28,6 +28,14 @@ A standard that encodes binary entropy as a sequence of common English words dra
 
 ---
 
+## Channel AEK
+
+A random AES-256-GCM key shared by the members of a channel, a shared encrypted space across users. Each member holds it wrapped under their own circle AEK, so every device in their circle can open it. An invite runs the circle's join ceremony between two users, with a verification code that also covers the channel id and the key's commitment.
+
+**Generated / used by:** [`createChannel`](./channel.md), `unwrapChannelAEK`, `authorizeChannelJoin`, `finalizeChannelJoin`
+
+---
+
 ## DEK — Data Encryption Key
 
 A per-file or per-record AES-256-GCM key. A common pattern is to generate a fresh DEK for every piece of content, encrypt the content with the DEK, then wrap the DEK with the AEK. This means changing a user's AEK only requires re-wrapping the DEKs — not re-encrypting the underlying data.
