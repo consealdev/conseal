@@ -494,9 +494,10 @@
           <div class="code-block rl-padding-l">
             <div><span class="dim">import</span> * <span class="dim">as</span> <span class="bright">conseal</span> <span class="dim">from</span> <span class="yellow">'@consealdev/conseal'</span></div>
             <div>&nbsp;</div>
-            <div class="dim">// Generates + persists an AEK in IndexedDB.</div>
-            <div class="dim">// No-op on subsequent calls — idempotent.</div>
-            <div><span class="dim">const</span> { <span class="bright">aek</span> } = <span class="dim">await</span> conseal.<span class="yellow">init</span>()</div>
+            <div class="dim">// Unwraps the account's AEK and keeps it in IndexedDB,</div>
+            <div class="dim">// non-extractable. Then load it anywhere in the app.</div>
+            <div><span class="dim">await</span> conseal.<span class="yellow">init</span>(wrappedKey, salt, passphrase, secretKey)</div>
+            <div><span class="dim">const</span> <span class="bright">aek</span> = <span class="dim">await</span> conseal.<span class="yellow">loadCryptoKey</span>(conseal.AEK_KEY_ID)</div>
           </div>
         </div>
 
@@ -509,11 +510,11 @@
           <div class="code-block rl-padding-l">
             <div><span class="dim">import</span> * <span class="dim">as</span> <span class="bright">conseal</span> <span class="dim">from</span> <span class="yellow">'@consealdev/conseal'</span></div>
             <div>&nbsp;</div>
-            <div class="dim">// AES-256-GCM. Returns Uint8Array (IV + ciphertext).</div>
-            <div><span class="dim">const</span> <span class="bright">ct</span> = <span class="dim">await</span> conseal.<span class="yellow">seal</span>(plaintext, aek)</div>
+            <div class="dim">// AES-256-GCM with a random 12-byte IV. Store both.</div>
+            <div><span class="dim">const</span> { <span class="bright">ciphertext</span>, <span class="bright">iv</span> } = <span class="dim">await</span> conseal.<span class="yellow">seal</span>(aek, plaintext)</div>
             <div>&nbsp;</div>
             <div class="dim">// Decrypts. Throws if tampered.</div>
-            <div><span class="dim">const</span> <span class="bright">pt</span> = <span class="dim">await</span> conseal.<span class="yellow">unseal</span>(ct, aek)</div>
+            <div><span class="dim">const</span> <span class="bright">pt</span> = <span class="dim">await</span> conseal.<span class="yellow">unseal</span>(aek, ciphertext, iv)</div>
           </div>
         </div>
 
@@ -544,7 +545,7 @@
       <div class="rl-stack rl-gap-m">
         <span class="section-label">API</span>
         <h2 class="section-title">Everything exported from <code style="font-size: 1.5rem; font-weight: 800; letter-spacing: -0.01em; font-family: 'SF Mono','Fira Code',monospace; color: var(--color-code-yellow);">conseal</code></h2>
-        <p class="section-sub">All functions are async, return typed values, and throw on authentication failure.</p>
+        <p class="section-sub">Key operations are async and throw on authentication failure.</p>
       </div>
 
       <div class="rl-stack rl-gap-l">
@@ -561,8 +562,8 @@
               <tbody>
                 <tr><td class="fn">seal(key, plaintext, additionalData?)</td><td class="desc">Encrypt with a random 96-bit IV. Optional <code>additionalData</code> binds context to the auth tag (AAD). Returns <code>{ ciphertext, iv }</code>.</td></tr>
                 <tr><td class="fn">unseal(key, ciphertext, iv, additionalData?)</td><td class="desc">Decrypt. Throws if the ciphertext has been tampered with or <code>additionalData</code> does not match.</td></tr>
-                <tr><td class="fn">generateAesKey()</td><td class="desc">Generate a fresh extractable AES-256-GCM <code>CryptoKey</code>.</td></tr>
-                <tr><td class="fn">importAesKey(raw)</td><td class="desc">Import 32 raw bytes as an AES-GCM key.</td></tr>
+                <tr><td class="fn">generateAesKey(extractable?)</td><td class="desc">Generate a fresh AES-256-GCM <code>CryptoKey</code>, non-extractable unless <code>extractable</code> is true.</td></tr>
+                <tr><td class="fn">importAesKey(raw, extractable?)</td><td class="desc">Import 32 raw bytes as an AES-GCM key.</td></tr>
               </tbody>
             </table>
           </div>
@@ -577,12 +578,12 @@
             <table class="api-table">
               <thead><tr><th>Function</th><th>Description</th></tr></thead>
               <tbody>
-                <tr><td class="fn">wrapKey(passphrase, key, secretKey?)</td><td class="desc">Derive a wrapping key from a passphrase (PBKDF2 + 600,000 iterations) and AES-KW wrap the AES key. Optional 128-bit Secret Key hardens the KDF input.</td></tr>
-                <tr><td class="fn">unwrapKey(passphrase, wrapped, salt, secretKey?)</td><td class="desc">Reverse of <code>wrapKey</code>. Returns <code>extractable: false</code>. Throws on wrong passphrase or Secret Key.</td></tr>
+                <tr><td class="fn">wrapKey(passphrase, key, secretKey?)</td><td class="desc">Derive a wrapping key from a passphrase (PBKDF2 + 600,000 iterations) and encrypt the key with AES-GCM; the IV is prepended to <code>wrappedKey</code>. Optional 128-bit Secret Key hardens the KDF input.</td></tr>
+                <tr><td class="fn">unwrapKey(passphrase, wrapped, salt, secretKey?, extractable?)</td><td class="desc">Reverse of <code>wrapKey</code>. Returns a non-extractable key unless <code>extractable</code> is true. Throws on wrong passphrase or Secret Key.</td></tr>
                 <tr><td class="fn">rekey(oldPass, newPass, wrapped, salt, secretKey?)</td><td class="desc">Change the passphrase without re-encrypting content. Secret Key stays the same.</td></tr>
                 <tr><td class="fn">rekeySecretKey(pass, oldSK, newSK, wrapped, salt)</td><td class="desc">Rotate the Secret Key while keeping the passphrase. Use only on compromise — requires re-enrolling all devices.</td></tr>
                 <tr><td class="fn">generateSecretKey()</td><td class="desc">Generate a random 128-bit Secret Key. Call once at setup; store device-side and keep an offline copy.</td></tr>
-                <tr><td class="fn">combinePassphraseAndSecretKey(pass, sk)</td><td class="desc">SHA-256 hash of passphrase + Secret Key into a single opaque PBKDF2 input. Used internally by wrap/unwrap/rekey.</td></tr>
+                <tr><td class="fn">combinePassphraseAndSecretKey(pass, sk)</td><td class="desc">HMAC-SHA-256 of the passphrase, keyed by the Secret Key, as a single opaque PBKDF2 input. Used internally by wrap/unwrap/rekey.</td></tr>
               </tbody>
             </table>
           </div>
@@ -598,8 +599,8 @@
               <thead><tr><th>Function</th><th>Description</th></tr></thead>
               <tbody>
                 <tr><td class="fn">generateECDHKeyPair()</td><td class="desc">Generate an ECDH P-256 key pair for message encryption.</td></tr>
-                <tr><td class="fn">sealMessage(msg, recipientPub)</td><td class="desc">Encrypt a message for a recipient's public key. Ephemeral ECDH + AES-GCM.</td></tr>
-                <tr><td class="fn">unsealMessage(sealed, privateKey)</td><td class="desc">Decrypt using the recipient's private key.</td></tr>
+                <tr><td class="fn">sealMessage(recipientPublicKey, plaintext)</td><td class="desc">Encrypt a message for a recipient's public key. Ephemeral ECDH + AES-GCM. Returns <code>{ ciphertext, iv, ephemeralPublicKey }</code>.</td></tr>
+                <tr><td class="fn">unsealMessage(privateKey, ciphertext, iv, ephemeralPublicKey)</td><td class="desc">Decrypt using the recipient's private key.</td></tr>
               </tbody>
             </table>
           </div>
@@ -615,8 +616,8 @@
               <thead><tr><th>Function</th><th>Description</th></tr></thead>
               <tbody>
                 <tr><td class="fn">generateECDSAKeyPair()</td><td class="desc">Generate an ECDSA P-256 key pair for signing.</td></tr>
-                <tr><td class="fn">sign(data, privateKey)</td><td class="desc">Sign arbitrary bytes. Returns a DER-encoded signature.</td></tr>
-                <tr><td class="fn">verify(data, sig, publicKey)</td><td class="desc">Verify a signature. Returns <code>boolean</code>.</td></tr>
+                <tr><td class="fn">sign(privateKey, data)</td><td class="desc">Sign arbitrary bytes. Returns the 64-byte raw signature (r ‖ s), as WebCrypto produces it, not DER.</td></tr>
+                <tr><td class="fn">verify(publicKey, signature, data)</td><td class="desc">Verify a signature. Returns <code>boolean</code>.</td></tr>
               </tbody>
             </table>
           </div>
@@ -631,10 +632,10 @@
             <table class="api-table">
               <thead><tr><th>Function</th><th>Description</th></tr></thead>
               <tbody>
-                <tr><td class="fn">sealEnvelope(data, passphrase)</td><td class="desc">Encrypt data under a passphrase. Derives key via PBKDF2, encrypts with AES-GCM. Returns a <code>SealedEnvelope</code>.</td></tr>
-                <tr><td class="fn">unsealEnvelope(env, passphrase)</td><td class="desc">Decrypt a <code>SealedEnvelope</code>. Throws on wrong passphrase.</td></tr>
-                <tr><td class="fn">encodeEnvelope(env)</td><td class="desc">Serialise a <code>SealedEnvelope</code> to a URL-safe Base64 string for transport.</td></tr>
-                <tr><td class="fn">decodeEnvelope(str)</td><td class="desc">Deserialise from a URL-safe Base64 string back to a <code>SealedEnvelope</code>.</td></tr>
+                <tr><td class="fn">sealEnvelope(plaintext, passcode)</td><td class="desc">Encrypt data under a passcode: a random key encrypts it with AES-GCM, and that key is wrapped under the passcode via PBKDF2. Returns a <code>SealedEnvelope</code>.</td></tr>
+                <tr><td class="fn">unsealEnvelope(envelope, passcode)</td><td class="desc">Decrypt a <code>SealedEnvelope</code>. Throws on wrong passcode.</td></tr>
+                <tr><td class="fn">encodeEnvelope(env)</td><td class="desc">Serialise a <code>SealedEnvelope</code> to a JSON string, binary fields in Base64, for transport.</td></tr>
+                <tr><td class="fn">decodeEnvelope(json)</td><td class="desc">Parse that JSON back to a <code>SealedEnvelope</code>. Throws if it isn't one.</td></tr>
               </tbody>
             </table>
           </div>
@@ -649,11 +650,11 @@
             <table class="api-table">
               <thead><tr><th>Function</th><th>Description</th></tr></thead>
               <tbody>
-                <tr><td class="fn">initCircle(passphrase, secretKey)</td><td class="desc">Founding device generates the shared AEK and wraps it. Returns <code>wrappedAEK</code>, <code>aekCommitment</code>, and <code>deviceId</code>.</td></tr>
+                <tr><td class="fn">initCircle(mnemonic, passphrase, secretKey)</td><td class="desc">Founding device derives the shared AEK from the mnemonic and wraps it. Returns <code>wrappedAEK</code>, <code>aekCommitment</code>, and <code>deviceId</code>.</td></tr>
                 <tr><td class="fn">createJoinRequest(deviceMeta?)</td><td class="desc">New device generates an ephemeral ECDH key pair. Returns the join request payload, the ephemeral private key (hold in memory only), and a <code>verificationCode</code> to display prominently.</td></tr>
-                <tr><td class="fn">authorizeJoin(joinRequest, wrappedAEK, passphrase, secretKey)</td><td class="desc">Trusted device unwraps its AEK and seals it for the new device via ECDH. Rejects requests older than 5 minutes.</td></tr>
+                <tr><td class="fn">authorizeJoin(joinRequest, wrappedAEK, passphrase, secretKey, serverReceivedAt)</td><td class="desc">Trusted device unwraps its AEK and seals it for the new device via ECDH. <code>serverReceivedAt</code> is when the server received the request, in Unix ms; requests older than 5 minutes are rejected.</td></tr>
                 <tr><td class="fn">finalizeJoin(sealedAEK, ephemeralPrivateKey, passphrase, secretKey, aekCommitment)</td><td class="desc">New device unseals the AEK, verifies it against <code>aekCommitment</code>, and re-wraps it under its own credentials. Throws on commitment mismatch.</td></tr>
-                <tr><td class="fn">deriveVerificationCode(ephemeralPublicKey)</td><td class="desc">Derives a <code>XX-XX-XX</code> hex verification code from a public key. Both devices must display matching codes before approval to prevent MITM.</td></tr>
+                <tr><td class="fn">deriveVerificationCode(ephemeralPublicKey)</td><td class="desc">Derives a <code>XX-XX-XX-XX</code> hex verification code from a public key. Both devices must display matching codes before approval to prevent MITM.</td></tr>
               </tbody>
             </table>
           </div>
@@ -690,10 +691,10 @@
               <tbody>
                 <tr><td class="fn">init(wrapped, salt, pass, secretKey?)</td><td class="mod">conseal</td><td class="desc">Unwrap the AEK with passphrase (+ optional Secret Key) and persist it to IndexedDB under <code>AEK_KEY_ID</code>.</td></tr>
                 <tr><td class="fn">exportPublicKeyAsJwk(key)</td><td class="mod">conseal</td><td class="desc">Serialise a public <code>CryptoKey</code> to a JWK object for distribution.</td></tr>
-                <tr><td class="fn">importPublicKeyFromJwk(jwk)</td><td class="mod">conseal</td><td class="desc">Restore a <code>CryptoKey</code> from a JWK object.</td></tr>
-                <tr><td class="fn">generateMnemonic(aek)</td><td class="mod">conseal</td><td class="desc">Derive a BIP-39 mnemonic from an AES key for human-readable backup.</td></tr>
-                <tr><td class="fn">recoverWithMnemonic(phrase)</td><td class="mod">conseal</td><td class="desc">Reconstruct an AES key from a BIP-39 mnemonic and persist it.</td></tr>
-                <tr><td class="fn">digest(data)</td><td class="mod">conseal</td><td class="desc">SHA-256 hash. Returns <code>Uint8Array</code>.</td></tr>
+                <tr><td class="fn">importPublicKeyFromJwk(jwk, algorithm)</td><td class="mod">conseal</td><td class="desc">Restore a public <code>CryptoKey</code> from a JWK object, for <code>'ECDH'</code> or <code>'ECDSA'</code>.</td></tr>
+                <tr><td class="fn">generateMnemonic()</td><td class="mod">conseal</td><td class="desc">Generate a 24-word BIP-39 phrase (256 bits of entropy) to derive the AEK from.</td></tr>
+                <tr><td class="fn">recoverWithMnemonic(mnemonic, extractable?)</td><td class="mod">conseal</td><td class="desc">Derive the AEK from the mnemonic (HKDF-SHA-256). The same phrase always gives the same key. Doesn't store it.</td></tr>
+                <tr><td class="fn">digest(data)</td><td class="mod">conseal</td><td class="desc">SHA-256 hash. Returns an <code>ArrayBuffer</code>.</td></tr>
                 <tr><td class="fn">toBase64 / fromBase64</td><td class="mod">conseal</td><td class="desc">Standard Base64 encode / decode.</td></tr>
                 <tr><td class="fn">toBase64Url / fromBase64Url</td><td class="mod">conseal</td><td class="desc">URL-safe Base64 (no <code>+/=</code>) encode / decode.</td></tr>
                 <tr><td class="fn">saveCryptoKey / loadCryptoKey / deleteCryptoKey</td><td class="mod">conseal</td><td class="desc">Read/write/delete a <code>CryptoKey</code> from IndexedDB by string id. Used internally by <code>init()</code>.</td></tr>
@@ -724,15 +725,15 @@
             <div class="rl-stack rl-gap-m">
               <div class="rl-stack rl-gap-xs">
                 <strong style="font-size: 0.9rem;">Account Encryption Key (AEK)</strong>
-                <p style="font-size: 0.875rem; color: var(--color-muted);">The root symmetric key for a device. Generated by <code style="font-size: 0.8rem; color: var(--color-code-text); background: var(--color-code-bg); padding: 0.1em 0.3em; border-radius: 3px;">init()</code>, stored in IndexedDB as a non-exportable <code style="font-size: 0.8rem; color: var(--color-code-text); background: var(--color-code-bg); padding: 0.1em 0.3em; border-radius: 3px;">CryptoKey</code>. Can be re-exported via mnemonic for cross-device recovery.</p>
+                <p style="font-size: 0.875rem; color: var(--color-muted);">The root symmetric key of an account, shared by its devices. It's derived from the mnemonic, so the mnemonic recovers it on any device. <code style="font-size: 0.8rem; color: var(--color-code-text); background: var(--color-code-bg); padding: 0.1em 0.3em; border-radius: 3px;">init()</code> unwraps it on a device and stores it in IndexedDB as a non-extractable <code style="font-size: 0.8rem; color: var(--color-code-text); background: var(--color-code-bg); padding: 0.1em 0.3em; border-radius: 3px;">CryptoKey</code>.</p>
               </div>
               <div class="rl-stack rl-gap-xs">
                 <strong style="font-size: 0.9rem;">Envelope</strong>
-                <p style="font-size: 0.875rem; color: var(--color-muted);">A self-contained encrypted parcel with embedded salt and IV. Designed for passcode-based sharing where no pre-shared key exists — the passphrase is the only credential.</p>
+                <p style="font-size: 0.875rem; color: var(--color-muted);">A self-contained encrypted parcel with embedded salt and IV. Designed for passcode-based sharing where no pre-shared key exists — the passcode is the only credential.</p>
               </div>
               <div class="rl-stack rl-gap-xs">
                 <strong style="font-size: 0.9rem;">ECDH vs Envelope</strong>
-                <p style="font-size: 0.875rem; color: var(--color-muted);"><code style="font-size: 0.8rem; color: var(--color-code-text); background: var(--color-code-bg); padding: 0.1em 0.3em; border-radius: 3px;">sealMessage</code> encrypts to a known recipient's public key — ideal for registered users. <code style="font-size: 0.8rem; color: var(--color-code-text); background: var(--color-code-bg); padding: 0.1em 0.3em; border-radius: 3px;">sealEnvelope</code> encrypts to a passphrase — ideal for anonymous or one-time recipients.</p>
+                <p style="font-size: 0.875rem; color: var(--color-muted);"><code style="font-size: 0.8rem; color: var(--color-code-text); background: var(--color-code-bg); padding: 0.1em 0.3em; border-radius: 3px;">sealMessage</code> encrypts to a known recipient's public key — ideal for registered users. <code style="font-size: 0.8rem; color: var(--color-code-text); background: var(--color-code-bg); padding: 0.1em 0.3em; border-radius: 3px;">sealEnvelope</code> encrypts to a passcode — ideal for anonymous or one-time recipients.</p>
               </div>
             </div>
           </div>
@@ -742,8 +743,9 @@
             <div>&nbsp;</div>
             <div><span class="dim">import</span> * <span class="dim">as</span> <span class="bright">conseal</span> <span class="dim">from</span> <span class="yellow">'@consealdev/conseal'</span></div>
             <div>&nbsp;</div>
-            <div class="dim">// 1. Setup — generate AEK + 128-bit Secret Key</div>
-            <div><span class="dim">const</span> <span class="bright">aek</span> = <span class="dim">await</span> crypto.subtle.<span class="yellow">generateKey</span>(<span class="dim">...</span>)</div>
+            <div class="dim">// 1. Setup — derive the AEK from a new mnemonic, + 128-bit Secret Key</div>
+            <div><span class="dim">const</span> <span class="bright">words</span> = conseal.<span class="yellow">generateMnemonic</span>()</div>
+            <div><span class="dim">const</span> <span class="bright">aek</span> = <span class="dim">await</span> conseal.<span class="yellow">recoverWithMnemonic</span>(words, <span class="dim">true</span>)</div>
             <div><span class="dim">const</span> <span class="bright">sk</span> = conseal.<span class="yellow">generateSecretKey</span>()</div>
             <div>&nbsp;</div>
             <div class="dim">// 2. Wrap for server storage</div>
@@ -755,8 +757,8 @@
             <div class="dim">// 4. Change password (Secret Key unchanged)</div>
             <div><span class="dim">const</span> <span class="bright">next</span> = <span class="dim">await</span> conseal.<span class="yellow">rekey</span>(<span class="yellow">'password'</span>, <span class="yellow">'new'</span>, wrappedKey, salt, sk)</div>
             <div>&nbsp;</div>
-            <div class="dim">// 5. Recover on new device via mnemonic</div>
-            <div><span class="dim">await</span> conseal.<span class="yellow">recoverWithMnemonic</span>(words)</div>
+            <div class="dim">// 5. Lost passphrase — the mnemonic gives back the same AEK</div>
+            <div><span class="dim">const</span> <span class="bright">same</span> = <span class="dim">await</span> conseal.<span class="yellow">recoverWithMnemonic</span>(words, <span class="dim">true</span>)</div>
           </div>
 
         </div>
@@ -860,8 +862,8 @@
             <span class="badge badge-green">core</span>
           </div>
           <p style="font-size:0.75rem;font-weight:600;letter-spacing:0.04em;color:var(--color-muted);">Account Encryption Key</p>
-          <p style="font-size:0.875rem;color:var(--color-muted);">The root AES-256-GCM key for a device, generated by <code style="font-size:0.78rem;color:var(--color-code-text);background:var(--color-code-bg);padding:0.1em 0.3em;border-radius:3px;">init()</code> and stored in IndexedDB as a non-extractable <code style="font-size:0.78rem;color:var(--color-code-text);background:var(--color-code-bg);padding:0.1em 0.3em;border-radius:3px;">CryptoKey</code>. All application data is encrypted with the AEK. It never leaves the device in plaintext — it is always transported wrapped under a PBKDF2-derived key, so the server sees only ciphertext it cannot read.</p>
-          <p style="font-size:0.8rem;color:var(--color-muted);"><strong style="color:var(--color-text);">Used by:</strong> <code style="font-size:0.78rem;color:var(--color-code-text);background:var(--color-code-bg);padding:0.1em 0.3em;border-radius:3px;">init</code>, <code style="font-size:0.78rem;color:var(--color-code-text);background:var(--color-code-bg);padding:0.1em 0.3em;border-radius:3px;">wrapKey</code>, <code style="font-size:0.78rem;color:var(--color-code-text);background:var(--color-code-bg);padding:0.1em 0.3em;border-radius:3px;">generateMnemonic</code></p>
+          <p style="font-size:0.875rem;color:var(--color-muted);">The root AES-256-GCM key of an account, shared by all its devices. <code style="font-size:0.78rem;color:var(--color-code-text);background:var(--color-code-bg);padding:0.1em 0.3em;border-radius:3px;">initCircle()</code> derives it from the mnemonic; <code style="font-size:0.78rem;color:var(--color-code-text);background:var(--color-code-bg);padding:0.1em 0.3em;border-radius:3px;">init()</code> unwraps it on a device and stores it in IndexedDB as a non-extractable <code style="font-size:0.78rem;color:var(--color-code-text);background:var(--color-code-bg);padding:0.1em 0.3em;border-radius:3px;">CryptoKey</code>. All application data is encrypted with the AEK. It leaves a device only wrapped: under a PBKDF2-derived key for the server, or sealed to a joining device's ephemeral key, so the server sees only ciphertext it cannot read.</p>
+          <p style="font-size:0.8rem;color:var(--color-muted);"><strong style="color:var(--color-text);">Used by:</strong> <code style="font-size:0.78rem;color:var(--color-code-text);background:var(--color-code-bg);padding:0.1em 0.3em;border-radius:3px;">initCircle</code>, <code style="font-size:0.78rem;color:var(--color-code-text);background:var(--color-code-bg);padding:0.1em 0.3em;border-radius:3px;">recoverWithMnemonic</code>, <code style="font-size:0.78rem;color:var(--color-code-text);background:var(--color-code-bg);padding:0.1em 0.3em;border-radius:3px;">init</code>, <code style="font-size:0.78rem;color:var(--color-code-text);background:var(--color-code-bg);padding:0.1em 0.3em;border-radius:3px;">wrapKey</code>, <code style="font-size:0.78rem;color:var(--color-code-text);background:var(--color-code-bg);padding:0.1em 0.3em;border-radius:3px;">seal</code></p>
         </div>
 
         <!-- Channel AEK -->
@@ -882,8 +884,8 @@
             <span class="badge badge-muted">randomness</span>
           </div>
           <p style="font-size:0.75rem;font-weight:600;letter-spacing:0.04em;color:var(--color-muted);">Initialisation Vector &middot; Number Used Once</p>
-          <p style="font-size:0.875rem;color:var(--color-muted);">A random byte sequence prepended to every ciphertext. Encrypting the same plaintext twice with the same key but different IVs produces completely different ciphertexts, preventing pattern analysis. In GCM, the IV must never be reused under the same key; conseal generates a fresh cryptographically secure random IV per operation using <code style="font-size:0.78rem;color:var(--color-code-text);background:var(--color-code-bg);padding:0.1em 0.3em;border-radius:3px;">crypto.getRandomValues</code>.</p>
-          <p style="font-size:0.8rem;color:var(--color-muted);"><strong style="color:var(--color-text);">Format:</strong> 12-byte random prefix embedded in every <code style="font-size:0.78rem;color:var(--color-code-text);background:var(--color-code-bg);padding:0.1em 0.3em;border-radius:3px;">seal</code> output; stripped automatically on decrypt.</p>
+          <p style="font-size:0.875rem;color:var(--color-muted);">A random byte sequence used once per encryption and stored with the ciphertext. Encrypting the same plaintext twice with the same key but different IVs produces completely different ciphertexts, preventing pattern analysis. In GCM, the IV must never be reused under the same key; conseal generates a fresh cryptographically secure random IV per operation using <code style="font-size:0.78rem;color:var(--color-code-text);background:var(--color-code-bg);padding:0.1em 0.3em;border-radius:3px;">crypto.getRandomValues</code>.</p>
+          <p style="font-size:0.8rem;color:var(--color-muted);"><strong style="color:var(--color-text);">Format:</strong> 12 random bytes per operation. <code style="font-size:0.78rem;color:var(--color-code-text);background:var(--color-code-bg);padding:0.1em 0.3em;border-radius:3px;">seal</code> returns it as <code style="font-size:0.78rem;color:var(--color-code-text);background:var(--color-code-bg);padding:0.1em 0.3em;border-radius:3px;">iv</code>, to store with the ciphertext; <code style="font-size:0.78rem;color:var(--color-code-text);background:var(--color-code-bg);padding:0.1em 0.3em;border-radius:3px;">wrapKey</code> puts it at the start of <code style="font-size:0.78rem;color:var(--color-code-text);background:var(--color-code-bg);padding:0.1em 0.3em;border-radius:3px;">wrappedKey</code>.</p>
         </div>
 
         <!-- ESM -->
