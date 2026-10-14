@@ -6,8 +6,11 @@ import {
   authorizeJoin,
   finalizeJoin,
   deriveVerificationCode,
+  formatVerificationCode,
   type WrappedAEK,
 } from '../src/circle'
+import { importPublicKeyFromJwk } from '../src/jwk'
+import { digest } from '../src/digest'
 import { generateMnemonic, recoverWithMnemonic } from '../src/mnemonic'
 import {
   initCircle as initCircleFromIndex,
@@ -19,6 +22,8 @@ import {
 
 // ---------- helpers ----------
 
+const CODE = /^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$/
+
 function makeSecretKey(): Uint8Array {
   return crypto.getRandomValues(new Uint8Array(16))
 }
@@ -29,11 +34,36 @@ function makeMnemonic(): string {
 
 // ---------- deriveVerificationCode ----------
 
+describe('formatVerificationCode', () => {
+  it('writes the first 80 bits as Crockford base32 in four groups of four', () => {
+    const lower = new Uint8Array([0x00, 0x44, 0x32, 0x14, 0xc7, 0x42, 0x54, 0xb6, 0x35, 0xcf])
+    const upper = new Uint8Array([0x84, 0x65, 0x3a, 0x56, 0xd7, 0xc6, 0x75, 0xbe, 0x77, 0xdf])
+    expect(formatVerificationCode(lower.buffer)).toBe('0123-4567-89AB-CDEF')
+    expect(formatVerificationCode(upper.buffer)).toBe('GHJK-MNPQ-RSTV-WXYZ')
+  })
+
+  it('reads nothing past the first 80 bits', () => {
+    const hash = new Uint8Array(32).fill(0xff)
+    const changed = hash.slice()
+    changed.fill(0, 10)
+    expect(formatVerificationCode(hash.buffer)).toBe('ZZZZ-ZZZZ-ZZZZ-ZZZZ')
+    expect(formatVerificationCode(changed.buffer)).toBe('ZZZZ-ZZZZ-ZZZZ-ZZZZ')
+  })
+})
+
 describe('deriveVerificationCode', () => {
-  it('returns a string matching XX-XX-XX-XX format', async () => {
+  it('returns 16 base32 characters in groups of four', async () => {
     const { request } = await createJoinRequest()
     const code = await deriveVerificationCode(request.ephemeralPublicKey)
-    expect(code).toMatch(/^[0-9A-F]{2}-[0-9A-F]{2}-[0-9A-F]{2}-[0-9A-F]{2}$/)
+    expect(code).toMatch(CODE)
+  })
+
+  it('formats the SHA-256 of the key\'s uncompressed point', async () => {
+    const { request } = await createJoinRequest()
+    const key = await importPublicKeyFromJwk(request.ephemeralPublicKey, 'ECDH')
+    const point = await crypto.subtle.exportKey('raw', key)
+    expect(point.byteLength).toBe(65)
+    expect(await deriveVerificationCode(request.ephemeralPublicKey)).toBe(formatVerificationCode(await digest(point)))
   })
 
   it('returns the same code for the same JWK', async () => {
@@ -185,9 +215,9 @@ describe('createJoinRequest', () => {
     expect(ephemeralPrivateKey.algorithm.name).toBe('ECDH')
   })
 
-  it('returns a verification code in XX-XX-XX-XX format', async () => {
+  it('returns a verification code of 16 base32 characters in groups of four', async () => {
     const { verificationCode } = await createJoinRequest()
-    expect(verificationCode).toMatch(/^[0-9A-F]{2}-[0-9A-F]{2}-[0-9A-F]{2}-[0-9A-F]{2}$/)
+    expect(verificationCode).toMatch(CODE)
   })
 
   it('generates a unique deviceId on each call', async () => {

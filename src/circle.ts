@@ -35,6 +35,9 @@ import { buffersEqual } from './compare'
 /** Maximum age of a join request before it is considered stale (5 minutes). */
 export const JOIN_TTL_MS = 5 * 60 * 1000
 
+const CODE_BYTES = 10 // 80 bits, 16 base32 characters
+const CODE_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ' // Crockford base32: no I, L, O or U
+
 // ---------- Types ----------
 
 /** Wrapped AEK — opaque blob stored server-side per device. */
@@ -69,15 +72,18 @@ export interface SealedAEK {
  * Derives a human-readable verification code from an ECDH public key JWK.
  *
  * Exports the key as its uncompressed point bytes (65 bytes for P-256),
- * SHA-256 hashes them, and formats the first 4 bytes as uppercase hex pairs
- * separated by dashes: e.g. "A3-4F-9C-12" (32 bits / ~4 billion possible codes).
+ * SHA-256 hashes them, and formats the first 80 bits as 16 Crockford base32
+ * characters in groups of four: e.g. "7KQ2-M9XD-4RTF-B8NW".
  *
  * Both the new device (createJoinRequest) and the authorizing device
  * (authorizeJoin) call this with the same JWK and must get the same code.
  * The user confirms the codes match out-of-band before approval proceeds.
  *
- * 32-bit space makes brute-force injection of a matching fake key pair
- * infeasible within the 5-minute TTL window.
+ * A server that relays the join can put a key pair of its own in place of the
+ * new device's, and needs one whose code matches: about 2^80 tries. That is out
+ * of reach within the 5-minute TTL, and so is a table built in advance, which
+ * would serve every join since the code covers the key alone. At 32 bits, one
+ * GPU finds a match in under a minute.
  */
 export async function deriveVerificationCode(ephemeralPublicKey: JsonWebKey): Promise<string> {
   return formatVerificationCode(await digest(await exportRawPublicKey(ephemeralPublicKey)))
@@ -89,11 +95,20 @@ export async function exportRawPublicKey(publicKey: JsonWebKey): Promise<ArrayBu
   return crypto.subtle.exportKey('raw', key)
 }
 
-/** Formats the first 4 bytes of a hash as uppercase hex pairs separated by dashes: "A3-4F-9C-12". */
+/** Formats the first 80 bits of a hash as Crockford base32 in four groups of four: "7KQ2-M9XD-4RTF-B8NW". */
 export function formatVerificationCode(hash: ArrayBuffer): string {
-  const bytes = new Uint8Array(hash)
-  const hex = (b: number) => b.toString(16).padStart(2, '0').toUpperCase()
-  return `${hex(bytes[0]!)}-${hex(bytes[1]!)}-${hex(bytes[2]!)}-${hex(bytes[3]!)}`
+  let chars = ''
+  let value = 0
+  let bits = 0
+  for (const byte of new Uint8Array(hash, 0, CODE_BYTES)) {
+    value = ((value << 8) | byte) & 0xfff // at most 4 bits carry over, plus this byte
+    bits += 8
+    while (bits >= 5) {
+      bits -= 5
+      chars += CODE_ALPHABET.charAt((value >> bits) & 31)
+    }
+  }
+  return [0, 4, 8, 12].map(start => chars.slice(start, start + 4)).join('-')
 }
 
 // ---------- Ceremony API ----------

@@ -11,6 +11,7 @@ import {
   authorizeJoin,
   finalizeJoin,
   deriveVerificationCode,
+  formatVerificationCode,
 } from '../src/circle'
 import {
   createChannel,
@@ -26,7 +27,7 @@ import * as conseal from '../src/index'
 // ---------- helpers ----------
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
-const CODE = /^[0-9A-F]{2}-[0-9A-F]{2}-[0-9A-F]{2}-[0-9A-F]{2}$/
+const CODE = /^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}$/
 
 /** A member's circle AEK, as every device in their circle holds it. */
 function circleKey(): Promise<CryptoKey> {
@@ -198,11 +199,9 @@ describe('createChannelJoinRequest', () => {
     const label = new TextEncoder().encode('conseal-channel-invite:v1')
     const id = new TextEncoder().encode(channel.channelId)
     const input = new Uint8Array([...label, ...new Uint8Array(channel.aekCommitment), ...point, ...id])
-    const hash = new Uint8Array(await digest(input))
-    const expected = Array.from(hash.slice(0, 4), byte => byte.toString(16).padStart(2, '0').toUpperCase()).join('-')
 
     expect(point.byteLength).toBe(65)
-    expect(verificationCode).toBe(expected)
+    expect(verificationCode).toBe(formatVerificationCode(await digest(input)))
   })
 
   it('gives a code unlike the circle\'s for the same ephemeral key', async () => {
