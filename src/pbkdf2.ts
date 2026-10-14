@@ -6,10 +6,10 @@
  *
  * wrapKey()        derives a wrapping key from a passphrase + random salt, exports the
  *                  target CryptoKey as raw bytes, and encrypts them with AES-GCM. A fresh
- *                  random IV is prepended to the ciphertext — both salt and IV are stored
- *                  inside the returned wrappedKey and are not secret.
+ *                  random IV is prepended to the ciphertext inside the returned wrappedKey,
+ *                  and the salt is returned beside it. Neither is secret.
  *
- * unwrapKey()      reverses the process. Always returns extractable: false — the
+ * unwrapKey()      reverses the process. Returns extractable: false unless asked — the
  *                  unwrapped key is safe to store in IndexedDB and use for encrypt/decrypt.
  *
  * rekey()          changes the passphrase without touching any encrypted content.
@@ -21,7 +21,7 @@
  *                  operation equivalent to a full account re-setup.
  *
  * All four functions accept an optional secretKey (Uint8Array). When provided,
- * the passphrase is combined with the Secret Key via SHA-256 before PBKDF2 runs.
+ * the passphrase is combined with the Secret Key by HMAC-SHA-256 before PBKDF2 runs.
  * Existing callers that pass no secretKey are unaffected.
  *
  * PBKDF2 parameters: 600,000 iterations, SHA-256, 128-bit random salt per call.

@@ -26,13 +26,13 @@ Conseal is a browser-side cryptography library built entirely on the [Web Crypto
 | Asset | Description | Where it lives |
 |---|---|---|
 | **AEK** (Account Encryption Key) | Root AES-256-GCM key; all user data is encrypted with it | IndexedDB (non-extractable `CryptoKey`) |
-| **Wrapped AEK** | AEK protected by PBKDF2 + AES-KW | Server / cloud storage |
+| **Wrapped AEK** | AEK protected by PBKDF2 + AES-GCM | Server / cloud storage |
 | **Secret Key (SK)** | 128-bit second factor for AEK wrapping | Device-local storage (e.g. `localStorage`) |
 | **Passphrase** | Human-chosen credential; combined with SK into PBKDF2 | User's memory only |
 | **Plaintext** | Application data before encryption | Exists only transiently in JavaScript memory |
 | **Ciphertext** | AES-256-GCM encrypted application data | Server / cloud storage |
 | **ECDH / ECDSA key pairs** | Per-user asymmetric keys for messaging and signing | Server (public key) / IndexedDB (private key) |
-| **BIP-39 mnemonic** | 24-word phrase derived from AEK for offline backup | User's written record only |
+| **BIP-39 mnemonic** | 24-word phrase the AEK is derived from, kept as an offline backup | User's written record only |
 | **Channel AEK** | AES-256-GCM key shared by a channel's members, across users | Members' devices, as a non-extractable `CryptoKey` |
 | **Wrapped channel AEK** | Channel AEK under one member's circle AEK (AES-GCM, bound to the channel id) | Server, one per member |
 
@@ -182,7 +182,7 @@ The security properties documented here hold **only if** the following condition
 | 5 | The **BIP-39 mnemonic** is treated as a high-secrets credential (offline storage only) | A single leak allows full AEK reconstruction |
 | 6 | The application does not **eval** or execute untrusted scripts in the same origin | Equivalent to assumption 2; any arbitrary script can use loaded `CryptoKey` objects |
 | 7 | The browser's `SubtleCrypto` implementation is **not compromised** | All cryptographic operations are delegated to the browser; a backdoored browser breaks everything |
-| 8 | `init()` is called before any `seal()` / `unseal()` operation | Without a loaded AEK, encryption will throw or fall back to an unexpected key |
+| 8 | `init()` is called before any `seal()` / `unseal()` operation | `loadCryptoKey(AEK_KEY_ID)` returns `null`, and `seal()` / `unseal()` throw on it. There is no fallback key |
 
 ---
 
@@ -192,11 +192,12 @@ The security properties documented here hold **only if** the following condition
 |---|---|---|---|
 | Symmetric encryption | AES-GCM | 256-bit key, 12-byte IV, 128-bit tag | NIST standard; authenticated; hardware-accelerated in all modern CPUs and browsers |
 | Key derivation | PBKDF2-HMAC-SHA256 | 600,000 iterations, 16-byte random salt | RFC 8018; NIST SP 800-132 recommendation ≥ 210,000 for SHA-256; broad browser support |
-| Key wrapping | AES-KW | 256-bit wrapping key | RFC 3394; deterministic and safe for already-random key material |
+| Key wrapping | AES-GCM | 256-bit wrapping key from PBKDF2, 12-byte random IV prepended to the wrapped key, 128-bit tag | Authenticated on every engine, so a wrong passphrase or Secret Key throws. Not AES-KW: WebKit doesn't enforce its integrity check, so a wrong credential could return garbage instead of throwing |
 | Key agreement | ECDH | NIST P-256 | Widely available in SubtleCrypto; adequate for the threat model; no dependencies |
 | Signatures | ECDSA | NIST P-256, SHA-256 | Same rationale as ECDH; P-256 is the baseline curve in WebCrypto |
 | Hashing | SHA-256 | — | Universal; used as PBKDF2 PRF and standalone digest |
 | Mnemonic encoding | BIP-39 | 24 words (256-bit entropy + 8-bit checksum) | Human-writeable offline backup; well-specified; implemented by `@scure/bip39` |
+| Mnemonic to AEK | HKDF-SHA-256 | Empty salt, info `conseal-mnemonic-aek-v1` | The entropy is already uniform; the label keeps this key apart from any other use of the same entropy |
 | Randomness | `crypto.getRandomValues` | — | CSPRNG; provided by the browser/OS; no user-space RNG |
 
 ---

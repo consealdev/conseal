@@ -363,7 +363,7 @@
                 </tr>
                 <tr>
                   <td>Wrapped AEK</td>
-                  <td>AEK protected by PBKDF2 + AES-KW</td>
+                  <td>AEK protected by PBKDF2 + AES-GCM</td>
                   <td>Server / cloud storage</td>
                 </tr>
                 <tr>
@@ -393,7 +393,7 @@
                 </tr>
                 <tr>
                   <td>BIP-39 mnemonic</td>
-                  <td>24-word phrase derived from AEK for offline backup</td>
+                  <td>24-word phrase the AEK is derived from, kept as an offline backup</td>
                   <td>User's written record only</td>
                 </tr>
                 <tr>
@@ -667,7 +667,7 @@
                 <tr>
                   <td class="num-cell">8</td>
                   <td><code>init()</code> is called before any <code>seal()</code> / <code>unseal()</code> operation</td>
-                  <td>Encryption will throw or operate on an unexpected key</td>
+                  <td><code>loadCryptoKey(AEK_KEY_ID)</code> returns <code>null</code>, and <code>seal()</code> / <code>unseal()</code> throw on it. There is no fallback key</td>
                 </tr>
               </tbody>
             </table>
@@ -700,9 +700,9 @@
                 </tr>
                 <tr>
                   <td>Key wrapping</td>
-                  <td>AES-KW</td>
-                  <td>256-bit wrapping key</td>
-                  <td>RFC 3394; deterministic and safe for uniformly-random key material</td>
+                  <td>AES-GCM</td>
+                  <td>256-bit wrapping key from PBKDF2 · 12-byte random IV prepended to the wrapped key · 128-bit tag</td>
+                  <td>Authenticated on every engine, so a wrong passphrase or Secret Key throws. Not AES-KW: WebKit doesn't enforce its integrity check, so a wrong credential could return garbage instead of throwing</td>
                 </tr>
                 <tr>
                   <td>Key agreement</td>
@@ -727,6 +727,12 @@
                   <td>BIP-39</td>
                   <td>24 words · 256-bit entropy + 8-bit checksum</td>
                   <td>Human-writeable offline backup; well-specified; implemented by <code>@scure/bip39</code></td>
+                </tr>
+                <tr>
+                  <td>Mnemonic to AEK</td>
+                  <td>HKDF-SHA-256</td>
+                  <td>Empty salt · info <code>conseal-mnemonic-aek-v1</code></td>
+                  <td>The entropy is already uniform; the label keeps this key apart from any other use of the same entropy</td>
                 </tr>
                 <tr>
                   <td>Randomness</td>

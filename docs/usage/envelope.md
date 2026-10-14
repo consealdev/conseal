@@ -11,6 +11,7 @@ encodeEnvelope(envelope: SealedEnvelope): string
 decodeEnvelope(json: string): SealedEnvelope
 
 interface SealedEnvelope {
+  version: 1
   ciphertext: ArrayBuffer
   iv: Uint8Array
   wrappedKey: ArrayBuffer
