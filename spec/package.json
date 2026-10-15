@@ -1,13 +1,12 @@
 {
-  "name": "@consealdev/conseal-sync-spec",
+  "name": "@consealdev/conseal-spec",
   "version": "0.2.0",
   "private": true,
-  "description": "Conseal Sync wire contract — OpenAPI specs for the sync and circle routes",
+  "description": "conseal's wire contract — OpenAPI specs for the sync and circle routes",
   "license": "MIT",
   "main": "openapi.yaml",
   "files": [
     "openapi.yaml",
-    "circle.yaml",
-    "threat-model.md"
+    "circle.yaml"
   ]
 }

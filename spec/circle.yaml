@@ -9,7 +9,7 @@ info:
   description: |
     The routes a backend serves for conseal's circle: the devices that share a user's account key
     (AEK), and the join ceremony that brings a new device in. They are the server side of
-    conseal-sync-js's `CircleTransport`, one route per method.
+    the `CircleTransport` of `@consealdev/conseal/sync`, one route per method.
 
     **The server holds no keys.** It stores what devices hand it, and gives it back: each device's
     wrapped AEK, the account's AEK commitment, join requests, and the AEK sealed to a joining device.
@@ -53,7 +53,7 @@ info:
       characters and a platform 64.
 
     The errors share one body, `{ code, message }`, and a client acts on `code`. The threat model,
-    `threat-model.md` beside this file, covers the circle routes in a section of their own.
+    `threat-model.md` at the root of the conseal repo, covers the circle routes in a section of their own.
 
 servers:
   - url: '{baseUrl}/{prefix}'

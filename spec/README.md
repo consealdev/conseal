@@ -1,12 +1,12 @@
-# conseal-sync-spec
+# The conseal spec
 
 OpenAPI specification for Conseal Sync's wire contract: how a user's encrypted records move between their devices
 through a server that can't read them. It defines the routes a sync backend serves, the record every client seals the
 same way, what a client does with each answer, and the circle routes that bring a new device in.
 
-Any backend that satisfies this contract works with
-[`conseal-sync-js`](https://github.com/consealdev/conseal-sync-js), and any client that follows it can read what
-another client wrote, whatever language either is written in.
+Any backend that satisfies this contract works with `@consealdev/conseal/sync`, from
+[`conseal-js`](https://github.com/consealdev/conseal-js), and any client that follows it can read what another client
+wrote, whatever language either is written in.
 
 ## What it covers
 
@@ -31,7 +31,7 @@ Beside the routes, `info.description` in [`openapi.yaml`](openapi.yaml) holds th
 - **What a client does with each answer:** a `409` is a merge instruction, `400` and `413` are permanent, `429` and
   `5xx` are transient
 
-[`circle.yaml`](circle.yaml), the circle routes: the server side of conseal-sync-js's `CircleTransport`, one route per
+[`circle.yaml`](circle.yaml), the circle routes: the server side of the `CircleTransport` of `@consealdev/conseal/sync`, one route per
 method.
 
 | Route | Does |
@@ -47,8 +47,8 @@ method.
 Its `info.description` holds the ceremony and the rules the server enforces: the commitment written once, join
 requests short-lived and used once by the server's clock, revoked devices kept out, and the last device kept in.
 
-[`threat-model.md`](threat-model.md) says what a server that follows the contract still learns, and what one that
-doesn't can still do.
+conseal's [threat model](../threat-model.md) says what a server that follows the contract still learns, and what one
+that doesn't can still do.
 
 ## Usage
 
@@ -75,13 +75,7 @@ Nothing checks either side against this file yet.
 
 ### Local development
 
-Clone into `spec/` inside the [`conseal-sync`](https://github.com/consealdev/conseal-sync) repo, beside the SDK repos:
-
-```sh
-git clone https://github.com/consealdev/conseal-sync-spec spec
-```
-
-Lint both files with the rules in [`redocly.yaml`](redocly.yaml):
+Lint both files with the rules in [`redocly.yaml`](redocly.yaml), from this folder. CI runs the same:
 
 ```sh
 npx --yes @redocly/cli@2.54.3 lint openapi.yaml circle.yaml

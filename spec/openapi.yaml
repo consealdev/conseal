@@ -9,7 +9,7 @@ info:
   description: |
     The wire contract of Conseal Sync: how a user's encrypted records move between their devices
     through a server that can't read them. Any backend that satisfies this contract works with
-    conseal-sync-js, and any client that follows it can read what another client wrote, whatever
+    `@consealdev/conseal/sync`, and any client that follows it can read what another client wrote, whatever
     language either is written in.
 
     **The server is blind.** It stores opaque records keyed by user, collection and record id,
@@ -105,7 +105,7 @@ info:
     before it pushes the record that refers to them, so no device sees a reference to a blob that
     isn't there yet. A blob id is a random lowercase UUID, like a record id.
 
-    The threat model, `threat-model.md` beside this file, says what the server still learns and
+    The threat model, `threat-model.md` at the root of the conseal repo, says what the server still learns and
     what it can still do.
 
 servers:
