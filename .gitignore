@@ -1,7 +1,21 @@
-node_modules/
-dist/
-docs/assets/conseal.js
-docs/assets/bip39.js
+# The SDKs and the pages are their own repos, cloned into src/sdk/ and pages/
+pages/
+src/sdk/
+
+# Local files that never leave this machine
 var/
-.vitest-attachments
-test/__screenshots__
+
+# The spec's lint tooling
+node_modules/
+
+# Editors
+.vs/
+.vscode/
+.idea/
+
+# Per-machine settings
+.claude/settings.local.json
+
+# OS
+.DS_Store
+Thumbs.db
