@@ -137,18 +137,22 @@ The circle is the set of a user's devices that hold the AEK. The AEK reaches a n
 it on a device that already holds it. On the way, the server relays ciphertext, wrapped keys, salts, public keys and
 the AEK commitment, and nothing it could open or guess a passphrase against.
 
-The ceremony: the new device posts a join request with an ephemeral ECDH public key, and both devices show a
-verification code derived from it. Once the user confirms the codes match, the approving device seals the AEK to that
-key, and the new device unseals it, checks it, and wraps it under its own passphrase and Secret Key.
+The ceremony: the new device reads the AEK commitment, then posts a join request with an ephemeral ECDH public key, and
+both devices show a verification code derived from the commitment and that key. Once the user confirms the codes match,
+the approving device seals the AEK to that key, and the new device unseals it, checks it, and wraps it under its own
+passphrase and Secret Key.
 
 ### 4.1 What the core enforces
 
-- **The verification code.** Each device shows 80 bits of the SHA-256 of the ephemeral key it holds. The server
-  relays the request, so it can put a key of its own in its place and receive the AEK sealed to it. The user approves
-  only when the codes match, and a server needs a key whose code matches the new device's: about 2⁸⁰ tries, out of
-  reach both within the request's five minutes and as a table built in advance.
-- **The commitment.** `finalizeJoin` checks the AEK it unseals against the commitment `initCircle` published. A
-  mismatch throws, and nothing is wrapped.
+- **The verification code.** Each device shows 80 bits of the SHA-256 of a label, the AEK commitment and the
+  ephemeral public key. The new device takes the commitment before its key pair exists, so whoever supplies it can't
+  choose it after seeing the key, and the approving device uses its own, never one the server supplies with the
+  request. The server relays the request, so it can put a key of its own in its place and receive the AEK sealed to
+  it, or give the new device the commitment of a key of its own and seal that key to the request. Either changes one
+  device's code. The user approves only when the codes match, and a server needs a match by chance: about 2⁸⁰ tries,
+  out of reach both within the request's five minutes and as a table built in advance for the account's commitment.
+- **The commitment.** `finalizeJoin` checks the AEK it unseals against the commitment the request was created with,
+  which the code covers. A mismatch throws, and nothing is wrapped.
 - **The server's receipt time.** `authorizeJoin` refuses a request the server received more than five minutes earlier.
   It takes `serverReceivedAt`, the time the server says it received the request, never the request's own `createdAt`,
   which the joining device sets.
@@ -162,9 +166,14 @@ the spec.
   without saying the user compared the codes. The comparison itself is the user's, and the library can't make them
   look. A UI that approves without showing the code, or confirms on the user's behalf, removes the defence in §4.1: a
   server that swaps in its own key then receives the AEK.
+- **The approving device's own commitment.** A device keeps the commitment it took the AEK with, at setup, joining
+  or recovery, and `pendingJoins` derives the codes from it. A device set up before it kept one reads as locked until
+  its next unlock, which works the commitment out from the AEK.
 - **A key from a device that knows the passphrase.** The request's ephemeral public key is public: the server relays
-  it, so it can seal a key of its own to it and answer the join itself, with no approving device. The joining device
-  therefore takes the AEK only with the approving device's passphrase check, and the check vouches for that one
+  it, so it can seal a key of its own to it and answer the join itself, with no approving device. The new device's
+  code then covers that key's commitment, but no trusted device shows a code to compare, and a user who sees the new
+  device move on may finish the join. The joining device therefore takes the AEK only with the approving device's
+  passphrase check, and the check vouches for that one
   sealed AEK: it carries a SHA-256 of the sealed AEK's IV and ciphertext. A server without the passphrase can't make a
   check that passes, and can't move a real check onto a key of its own, since the check travels sealed. An approval
   with no check, a check that doesn't open, or one that vouches for another key fails the join with
@@ -174,8 +183,9 @@ the spec.
   asks for the same passphrase and refuses another with `WrongPassphraseError`, so the user can try again. The server
   relays ciphertext. The joining device can guess against the hash, but it is the user's own device, about to hold
   the same passphrase.
-- **The commitment, when joining.** The joining device checks the AEK it receives against the account's commitment.
-  A mismatch fails the join with `CommitmentMismatchError`, and nothing is registered or kept.
+- **The commitment, when joining.** `startJoin` reads the account's commitment before it makes the key pair, and
+  doesn't take the one `createJoin` answers with. The joining device checks the AEK it receives against it. A mismatch
+  fails the join with `CommitmentMismatchError`, and nothing is registered or kept.
 - **The commitment, when recovering.** `recover` checks the key derived from the mnemonic against the commitment
   before it registers anything. A mistyped phrase that still passes the BIP-39 checksum, as about one single-word
   typo in 256 does, is refused, so it can't replace the circle's key or, with `revokeOtherDevices`, lock the other
@@ -185,11 +195,16 @@ the spec.
 
 ### 4.3 The core functions without `CircleClient`
 
-The commitment a joining device checks comes from the server, and the verification code covers only the joining
-device's key. So a dishonest server can seal a key of its own to the request's public key, give the device that key's
-commitment, and answer the join itself: `finalizeJoin` passes, and the server reads everything the device seals from
-then on. `CircleClient` closes this with the passphrase check (§4.2). An app that runs the ceremony on the core
-functions alone must check where the AEK came from in the same way, against something the server doesn't know.
+An app on the core functions alone gets the code comparison of §4.1, as long as the new device takes the commitment
+before `createJoinRequest` and the approving device derives its code from its own commitment, the one `initCircle`
+returned or its own join or recovery checked. A server that gives the new device another key's commitment then
+changes the new device's code.
+
+What the core doesn't add is the passphrase check (§4.2). A server can still answer a join itself, with a key of its
+own and that key's commitment, and no trusted device then shows a code. A new device that finishes without the user
+having confirmed matching codes on a trusted device takes the server's key, and the server reads everything it seals.
+So the new device finishes only once the user has confirmed the codes match, as a channel invite does (§5.2), or
+checks where the AEK came from as `CircleClient` does.
 
 ### 4.4 What the server holds and refuses
 
@@ -200,8 +215,8 @@ The circle routes are [`spec/circle.yaml`](spec/circle.yaml).
   what stays on the devices: a passphrase and a Secret Key, or the new device's private key.
 - **What it sees.** When devices join and are revoked, how many there are, and what their users call them.
 - **A substituted commitment.** The commitment is written once. A server that changes it, or lies about it from the
-  start, can make every join fail. It can't make a device take a key of its own that way: the passphrase check, not
-  the commitment, decides which key a new device takes.
+  start, can make every join fail. It can't make a device take a key of its own that way: the codes cover the
+  commitment, so a lie shows as codes that differ, and the passphrase check decides which key a new device takes.
 - **A replayed join.** A join request is used once and expires by the server's clock, so an old approval can't
   complete a later join. A dishonest server can keep a request open longer; approving it still needs the code
   comparison.
@@ -649,7 +664,7 @@ The properties in this document hold **only if** these are true:
 | 7 | The browser's `SubtleCrypto` is **not compromised** | Every operation is the browser's; a backdoored browser breaks everything |
 | 8 | `init()` runs before any `seal()` or `unseal()` that uses the stored AEK | `loadCryptoKey(AEK_KEY_ID)` returns `null`, and sealing throws on it. There is no fallback key |
 | 9 | The app shows the **verification code** and approves a join only once the user confirms it matches | A server can swap the joining device's key and receive the AEK (§4.5) |
-| 10 | An app that runs the circle without `CircleClient` **checks where the AEK came from** | A server can answer a join itself and read everything the device seals (§4.3) |
+| 10 | An app that runs the circle without `CircleClient` takes the **commitment before the key pair**, derives the approving device's code from **its own commitment**, and **finishes a join only once the codes are confirmed** | A server can answer a join itself and read everything the device seals (§4.3) |
 | 11 | Collections where a stale value matters use a **merge policy that compares versions** | A dishonest server can roll records back unnoticed (§6.3) |
 
 ---
