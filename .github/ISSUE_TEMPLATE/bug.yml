@@ -1,0 +1,58 @@
+name: Bug report
+description: Wrong behaviour, an error or a crash, in conseal-js, conseal-dotnet or the spec.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The smallest code that shows the bug is the most useful thing you can send: only the calls that matter, without your application around them.
+
+        Never paste a passphrase, a Secret Key, a recovery phrase, a key or your users' data. A reduced sample with made-up values is enough.
+
+        A security problem? Don't open an issue. See the [security policy](https://github.com/consealdev/conseal/security/policy).
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where did it happen?
+      options:
+        - "The core: @consealdev/conseal"
+        - "Sync: @consealdev/conseal/sync"
+        - "The components: @consealdev/conseal/ui"
+        - "The .NET backend: ConsealDev.Conseal"
+        - The spec
+        - Docs
+        - Not sure
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Package and version
+      placeholder: "e.g. @consealdev/conseal 0.7.0"
+    validations:
+      required: true
+  - type: input
+    id: runtime
+    attributes:
+      label: Browser or runtime, and OS
+      placeholder: "e.g. Safari 18 on macOS 15, Node 24 on Linux, or .NET 10 on Windows 11"
+  - type: textarea
+    id: code
+    attributes:
+      label: Smallest code that shows the bug
+      description: For a problem with the docs or the spec, write "n/a".
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened
+      description: The full error message and stack trace.
+    validations:
+      required: true
