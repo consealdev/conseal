@@ -53,7 +53,13 @@ git clone https://github.com/consealdev/conseal-js src/sdk/js
 git clone https://github.com/consealdev/conseal-dotnet src/sdk/dotnet
 ```
 
+## Issues
+
+Report bugs and request features at [github.com/consealdev/conseal/issues](https://github.com/consealdev/conseal/issues),
+the one tracker for conseal-js, conseal-dotnet and the spec. Questions go to
+[Discussions](https://github.com/consealdev/conseal/discussions). Pull requests are not accepted.
+
 ## License
 
 Each part has its own. conseal-js and conseal-dotnet are dual-licensed under AGPL-3.0 and a commercial license. The
-spec is [MIT](spec/LICENSE).
+spec is [MIT](spec/LICENSE). Commercial licensing questions go to license@conseal.dev.

@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question
+    url: https://github.com/consealdev/conseal/discussions
+    about: How to do something with conseal. Ask in Discussions, under Q&A.
+  - name: Security vulnerability
+    url: https://github.com/consealdev/conseal/security/policy
+    about: Report it privately, never in a public issue.
+  - name: Commercial license
+    url: https://github.com/consealdev/conseal#license
+    about: Commercial licensing questions go by email to license@conseal.dev.

@@ -1,0 +1,40 @@
+name: Feature request
+description: A specific change or addition you'd like in conseal.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For an open-ended idea, or to see whether others want the same, start in [Discussions](https://github.com/consealdev/conseal/discussions) under Ideas instead.
+
+        Codesense decides what gets built.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The app or workflow, and where conseal gets in the way.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would help?
+      description: An API sketch is welcome. Please don't attach code patches; we don't accept them.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part of conseal?
+      options:
+        - "The core: @consealdev/conseal"
+        - "Sync: @consealdev/conseal/sync"
+        - "The components: @consealdev/conseal/ui"
+        - "The .NET backend: ConsealDev.Conseal"
+        - The spec
+        - Docs
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: workaround
+    attributes:
+      label: How do you handle it today?
