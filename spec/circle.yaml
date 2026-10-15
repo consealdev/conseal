@@ -23,11 +23,12 @@ info:
 
     1. The first device creates the circle (`createCircle`): the AEK commitment and its own wrapped
        AEK.
-    2. A new device posts a join request (`createJoin`) carrying a throwaway public key, shows a
-       verification code derived from that key, and polls the request (`getJoin`).
-    3. A trusted device lists the waiting requests (`listJoins`) and shows the same code. Once the
-       user has confirmed the two codes match, it seals the AEK to the request's key and authorizes
-       (`authorizeJoin`), or denies (`denyJoin`).
+    2. A new device reads the commitment (`getCircle`), then posts a join request (`createJoin`)
+       carrying a throwaway public key, shows a verification code derived from the commitment and
+       that key, and polls the request (`getJoin`).
+    3. A trusted device lists the waiting requests (`listJoins`) and shows the same code, derived
+       from the commitment it holds itself. Once the user has confirmed the two codes match, it
+       seals the AEK to the request's key and authorizes (`authorizeJoin`), or denies (`denyJoin`).
     4. The new device reads the sealed AEK, wraps it under its own passphrase and Secret Key, and
        saves it naming the request (`saveWrappedAek`). That consumes the request.
 
@@ -73,7 +74,8 @@ paths:
       operationId: getCircle
       summary: Read the account's AEK commitment
       description: |
-        The commitment a device checks a recovered or joined AEK against. `404 no_circle` when the
+        The commitment a device checks a recovered or joined AEK against. A new device reads it
+        before it makes its join key, and its verification code covers it. `404 no_circle` when the
         account has no circle yet, so the client offers setup.
       responses:
         '200':
@@ -242,7 +244,8 @@ paths:
       summary: Ask to join the circle
       description: |
         Posts a new device's join request. Returns the request's id, and the account's commitment
-        for the new device to check the AEK against once it arrives.
+        as `getCircle` returns it. The client checks the AEK against the commitment it read before
+        making its key, the one its verification code covers.
       requestBody:
         required: true
         content:
