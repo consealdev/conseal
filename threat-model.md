@@ -688,5 +688,5 @@ These are deliberately outside conseal:
 
 ## 14. Reporting security issues
 
-Follow the [responsible disclosure process](SECURITY.md) rather than opening a public issue. Encryption bugs get the
+Follow the [security policy](https://github.com/consealdev/.github/blob/main/SECURITY.md) rather than opening a public issue. Encryption bugs get the
 highest priority.
