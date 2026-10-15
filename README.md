@@ -30,7 +30,9 @@ the umbrella.
 |------|-------|
 | [`spec/`](spec) | The wire contract: the sync and circle routes, as OpenAPI |
 | [`threat-model.md`](threat-model.md) | What conseal protects, against whom, and what it relies on |
-| [`SECURITY.md`](SECURITY.md) | How to report a vulnerability |
+
+The [security policy](https://github.com/consealdev/.github/blob/main/SECURITY.md) and the contributing guide live in
+[`consealdev/.github`](https://github.com/consealdev/.github), for every conseal repo.
 
 ## Repository structure
 
@@ -39,6 +41,7 @@ conseal/                ← this repo
 ├── pages/              ← gitignored: a clone of consealdev/pages, the pages of conseal.dev
 ├── spec/               ← the wire contract
 └── src/
+    ├── github/         ← gitignored: a clone of consealdev/.github, the org's security policy and contributing guide
     └── sdk/
         ├── js/         ← gitignored: a clone of consealdev/conseal-js
         └── dotnet/     ← gitignored: a clone of consealdev/conseal-dotnet
@@ -51,13 +54,15 @@ git clone https://github.com/consealdev/conseal
 cd conseal
 git clone https://github.com/consealdev/conseal-js src/sdk/js
 git clone https://github.com/consealdev/conseal-dotnet src/sdk/dotnet
+git clone https://github.com/consealdev/.github src/github
 ```
 
 ## Issues
 
 Report bugs and request features at [github.com/consealdev/conseal/issues](https://github.com/consealdev/conseal/issues),
 the one tracker for conseal-js, conseal-dotnet and the spec. Questions go to
-[Discussions](https://github.com/consealdev/conseal/discussions). Pull requests are not accepted.
+[Discussions](https://github.com/consealdev/conseal/discussions). Pull requests are not accepted. Report a vulnerability
+privately, as the [security policy](https://github.com/consealdev/.github/blob/main/SECURITY.md) says, never in an issue.
 
 ## License
 
