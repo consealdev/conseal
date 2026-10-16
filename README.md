@@ -37,14 +37,13 @@ The [security policy](https://github.com/consealdev/.github/blob/main/SECURITY.m
 ## Repository structure
 
 ```
-conseal/                ← this repo
-├── pages/              ← gitignored: a clone of consealdev/pages, the pages of conseal.dev
-├── spec/               ← the wire contract
-└── src/
-    ├── github/         ← gitignored: a clone of consealdev/.github, the org's security policy and contributing guide
-    └── sdk/
-        ├── js/         ← gitignored: a clone of consealdev/conseal-js
-        └── dotnet/     ← gitignored: a clone of consealdev/conseal-dotnet
+conseal/                    ← this repo
+├── spec/                   ← the wire contract
+└── repos/                  ← gitignored: the other conseal repos
+    ├── conseal-js/         ← a clone of consealdev/conseal-js
+    ├── conseal-dotnet/     ← a clone of consealdev/conseal-dotnet
+    ├── conseal-pages/      ← a clone of consealdev/pages, the pages of conseal.dev
+    └── conseal-github/     ← a clone of consealdev/.github, the org's security policy and contributing guide
 ```
 
 ## Getting started
@@ -52,9 +51,9 @@ conseal/                ← this repo
 ```sh
 git clone https://github.com/consealdev/conseal
 cd conseal
-git clone https://github.com/consealdev/conseal-js src/sdk/js
-git clone https://github.com/consealdev/conseal-dotnet src/sdk/dotnet
-git clone https://github.com/consealdev/.github src/github
+git clone https://github.com/consealdev/conseal-js repos/conseal-js
+git clone https://github.com/consealdev/conseal-dotnet repos/conseal-dotnet
+git clone https://github.com/consealdev/.github repos/conseal-github
 ```
 
 ## Issues
