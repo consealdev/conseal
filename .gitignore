@@ -1,7 +1,5 @@
-# The SDKs, the pages and the org files are their own repos, cloned into src/sdk/, pages/ and src/github/
-pages/
-src/sdk/
-src/github/
+# The SDKs, the pages and the org files are their own repos, cloned into repos/
+repos/
 
 # Local files that never leave this machine
 var/
