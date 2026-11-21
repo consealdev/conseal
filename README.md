@@ -100,5 +100,11 @@ Every route requires an authenticated user, from the app's own sign-in.
 
 ---
 
-The spec is licensed under the MIT License. See [spec/LICENSE](spec/LICENSE) for full terms. conseal-js and conseal-dotnet
-are licensed under the GNU Affero General Public License v3.0 or the Conseal Commercial License: see their repositories.
+This repository and the spec are licensed under the MIT License. See [LICENSE](LICENSE) for full terms.
+
+conseal-js and conseal-dotnet are licensed under the GNU Affero General Public License, version 3 or any later version,
+or the Conseal Commercial License. See conseal-js's
+[LICENSE](https://github.com/consealdev/conseal-js/blob/main/LICENSE) and
+[COMMERCIAL-LICENSE.md](https://github.com/consealdev/conseal-js/blob/main/COMMERCIAL-LICENSE.md), and conseal-dotnet's
+[LICENSE](https://github.com/consealdev/conseal-dotnet/blob/main/LICENSE) and
+[COMMERCIAL-LICENSE.md](https://github.com/consealdev/conseal-dotnet/blob/main/COMMERCIAL-LICENSE.md), for full terms.
